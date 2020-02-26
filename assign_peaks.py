@@ -51,8 +51,13 @@ def main(args):
     logging.info("concat")
     ddf = pd.concat(ddf)
     
+    
+    logging.info("add the expemeriment column")
+    
+    
+    
     logging.info("sort by DeltaMax cal")
-    ddf.sort_values(by=['expMH'], inplace=True)
+    ddf.sort_values(by=['Cal....'], inplace=True)
     ddf.reset_index(drop=True, inplace=True)
     
     ddf.to_csv("test.tsv", sep="\t")
@@ -70,8 +75,15 @@ if __name__ == '__main__':
             python assign_peaks.py
 
         ''')
-    parser.add_argument('-w',  '--n_workers', type=int, default=4, help='Number of threads/n_workers (default: %(default)s)')
     parser.add_argument('-i',  '--infile', required=True, help='Input file with the list of files that contains the peak picking')
+    parser.add_argument('-a',  '--appfile', required=True, help='File with the apex list of Mass')
+    
+    parser.add_argument('-f',  '--fwhm_filename', default='MAD_and_FWHM_calculations.txt', help='File name with the FWHM value. For example, MAD_and_FWHM_calculations.txt')    
+    parser.add_argument('-mn', '--minDelta', default=-500, help='Minimum Delta Mass. By default -500')
+    parser.add_argument('-mx', '--maxDelta', default=500, help='Maximum Delta Mass. By default 500')
+    parser.add_argument('-s',  '--nsigma', default=1.5, help='Coefficient of Sigma. By default, 1.5')
+
+    parser.add_argument('-w',  '--n_workers', type=int, default=4, help='Number of threads/n_workers (default: %(default)s)')    
     parser.add_argument('-v', dest='verbose', action='store_true', help="Increase output verbosity")
     args = parser.parse_args()
 
