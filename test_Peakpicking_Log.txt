@@ -1,0 +1,2 @@
+S:\U_Proteomica\LABS\LAB_ARR\LaCaixa\HDL-LDL-MDA-humano\cXcorr_Len_Rank_Results/Vertex_HDL_Placas_2/cXcorr_Len_Rank_Results_TargetData_Calibration.txt
+S:\U_Proteomica\LABS\LAB_ARR\LaCaixa\HDL-plasma_JMV\cXcorr_Len_Rank_Results/Vertex_HDL_Placas_2/cXcorr_Len_Rank_Results_TargetData_Calibration.txt
