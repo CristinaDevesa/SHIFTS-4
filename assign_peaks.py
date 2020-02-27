@@ -27,6 +27,8 @@ def concatInfiles(file):
     '''    
     # read input file
     df = pd.read_csv(file, sep="\t")
+    # add experiment column (using whole path for now)
+    df['Experiment'] = file
     return df
 
 #################
@@ -51,13 +53,8 @@ def main(args):
     logging.info("concat")
     ddf = pd.concat(ddf)
     
-    
-    logging.info("add the expemeriment column")
-    
-    
-    
     logging.info("sort by DeltaMax cal")
-    ddf.sort_values(by=['Cal....'], inplace=True)
+    ddf.sort_values(by=['Cal_Delta_MH'], inplace=True)
     ddf.reset_index(drop=True, inplace=True)
     
     ddf.to_csv("test.tsv", sep="\t")
