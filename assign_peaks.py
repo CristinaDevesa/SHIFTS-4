@@ -112,9 +112,15 @@ def main(args):
     
 
     logging.info("print output")
+    # https://towardsdatascience.com/the-best-format-to-save-pandas-data-414dca023e0d
+    # begin:printHDF5
+    # Note: Explote the Memory!!!
     # assign NumExpr for the tables module
-    tables.parameters.MAX_NUMEXPR_THREADS = args.n_workers
-    df.to_hdf('data.h5', key='df', mode='w')
+    # tables.parameters.MAX_NUMEXPR_THREADS = args.n_workers
+    # df.to_hdf('data.h5', key='df', mode='w')
+    # end:printHDF5
+    # df.to_csv('data.tsv', sep="\t", index=False)
+    df.to_feather('data.ftr')
     
 
 if __name__ == '__main__':
