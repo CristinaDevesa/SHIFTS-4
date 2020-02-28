@@ -104,15 +104,13 @@ def main(args):
     logging.info("parallel the operations by BIN")
     with concurrent.futures.ProcessPoolExecutor(max_workers=args.n_workers) as executor:        
         executor.map(bin_operations, list(df.groupby("bin")))
-    # df = pd.concat(df)
 
     # d_h = df.head()
     # d_t = df.tail()
     # d_h.to_csv("kk_head.tsv", sep="\t")
     # d_t.to_csv("kk_tail.tsv", sep="\t")
     
-    # df.to_hdf('data.h5', key='df', table=True)
-    
+
     logging.info("print output")
     # assign NumExpr for the tables module
     tables.parameters.MAX_NUMEXPR_THREADS = args.n_workers
