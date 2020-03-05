@@ -21,6 +21,7 @@ import pandas as pd
 import concurrent.futures
 from itertools import repeat
 import tables
+import numpy as np
 
 
 
@@ -53,17 +54,29 @@ def concatInfiles(infile, fwhm_fname):
     df['FWHM'] = fwhm
     return df
 
-def bin_operations(df):
+def bin_operations(df, apex_list):
     '''
     Main function that handles the operations by BIN
     '''
     # get the BIN value from the input tuple df=(bin,df)
-    (bin,df) = df[0],df[1]
+    (bin_value, df) = df[0], df[1]
+    
+    # assign to peaks
+    # window = nsigma * fwhm
+    # df['Peak'] = 'ORPHAN' #better assign to closest peak and then remove orphans
+    # df['Peak'] = np.where(df['Cal_Delta_MH'])
+    def closest_peak(apex_list, delta_MH):
+        peak = min(apex_list, key = lambda x : abs(x - delta_MH))
+        return peak
+    df['Peak'] = df.apply(lambda x: closest_peak(apex_list, x['Cal_Delta_MH']), axis = 1)
+    # if difference less than FWHM assign, else orphan
     
     # TO CHECK, print by BIN
     # outfile = os.path.join("D:/tmp/kk/", bin+"_kk.tsv")
     # df.to_csv(outfile, sep="\t", index=False)
+    return df
 
+#def assign_closest_peak(df):
     
     
 #################
@@ -84,17 +97,26 @@ def main(args):
     # you may also want to remove whitespace characters like `\n` at the end of each line
     infiles = [x.strip() for x in infiles] 
     logging.debug(infiles)
+    
+     # read apex list
+    def _extract_ApexList(file):
+        with open(file) as f:
+            data = f.read().split('\n')
+            data = [x for x in data if x.strip()]
+            data = np.array(data, dtype=np.float64)
+            return data
+    
+    foldername = os.path.dirname(args.appfile)
+    apex_file = "{}/{}".format(foldername, args.appfile)
+    apex_list = _extract_ApexList(apex_file)
 
 
     logging.info("concat input files...")
     logging.info("adding Experiment column (dirname of input file),")
-    logging.info("and adding a FWHM columns by Experiment")
+    logging.info("and adding a FWHM column by Experiment")
     with concurrent.futures.ProcessPoolExecutor(max_workers=args.n_workers) as executor:            
         df = executor.map(concatInfiles, infiles, repeat(args.fwhm_filename))
     df = pd.concat(df)
-          
-    logging.info("sort by DeltaMax cal")
-    df.sort_values(by=[col_CalDeltaMH], inplace=True)
     df.reset_index(drop=True, inplace=True)
  
     logging.info("create a column with the bin")
@@ -103,7 +125,11 @@ def main(args):
 
     logging.info("parallel the operations by BIN")
     with concurrent.futures.ProcessPoolExecutor(max_workers=args.n_workers) as executor:        
-        executor.map(bin_operations, list(df.groupby("bin")))
+        df = executor.map(bin_operations, list(df.groupby("bin")), repeat(apex_list))
+    df = pd.concat(df)
+    logging.info("sort by DeltaMax cal")
+    df.sort_values(by=[col_CalDeltaMH], inplace=True)
+    df.reset_index(drop=True, inplace=True)
 
     # d_h = df.head()
     # d_t = df.tail()
@@ -138,10 +164,10 @@ if __name__ == '__main__':
     parser.add_argument('-i',  '--infile', required=True, help='Input file with the list of files that contains the peak picking')
     parser.add_argument('-a',  '--appfile', required=True, help='File with the apex list of Mass')
     
-    parser.add_argument('-f',  '--fwhm_filename', default='MAD_and_FWHM_calculations.txt', help='File name with the FWHM value. For example, MAD_and_FWHM_calculations.txt')    
-    parser.add_argument('-mn', '--minDelta', default=-500, help='Minimum Delta Mass. By default -500')
-    parser.add_argument('-mx', '--maxDelta', default=500, help='Maximum Delta Mass. By default 500')
-    parser.add_argument('-s',  '--nsigma', default=1.5, help='Coefficient of Sigma. By default, 1.5')
+    parser.add_argument('-f',  '--fwhm_filename', default='MAD_and_FWHM_calculations.txt', help='File name with the FWHM value (default: %(default)s)')    
+    parser.add_argument('-mn', '--minDelta', default=-500, help='Minimum Delta Mass (default: %(default)s)')
+    parser.add_argument('-mx', '--maxDelta', default=500, help='Maximum Delta Mass (default: %(default)s)')
+    parser.add_argument('-s',  '--nsigma', default=1.5, help='Coefficient of Sigma (default: %(default)s)')
 
     parser.add_argument('-w',  '--n_workers', type=int, default=4, help='Number of threads/n_workers (default: %(default)s)')    
     parser.add_argument('-v', dest='verbose', action='store_true', help="Increase output verbosity")
