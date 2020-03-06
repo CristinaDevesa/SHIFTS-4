@@ -51,25 +51,35 @@ def concatInfiles(infile, fwhm_fname):
     # add fwhm column
     fwhm_file = "{}/{}".format(foldername, fwhm_fname)
     fwhm = _extract_FWHM(fwhm_file)
-    df['FWHM'] = fwhm
+    df['FWHM'] = float(fwhm)
+    #df['FWHM'] = df['FWHM'].astype(float)
     return df
 
-def bin_operations(df, apex_list):
+def bin_operations(df, apex_list, nsigma):
     '''
     Main function that handles the operations by BIN
     '''
     # get the BIN value from the input tuple df=(bin,df)
-    (bin_value, df) = df[0], df[1]
+    (bin_value, df) = int(df[0]), df[1]
     
     # assign to peaks
-    # window = nsigma * fwhm
-    # df['Peak'] = 'ORPHAN' #better assign to closest peak and then remove orphans
-    # df['Peak'] = np.where(df['Cal_Delta_MH'])
     def closest_peak(apex_list, delta_MH):
         peak = min(apex_list, key = lambda x : abs(x - delta_MH))
         return peak
-    df['Peak'] = df.apply(lambda x: closest_peak(apex_list, x['Cal_Delta_MH']), axis = 1)
-    # if difference less than FWHM assign, else orphan
+    df['ClosestPeak'] = df.apply(lambda x: closest_peak(apex_list, x['Cal_Delta_MH']), axis = 1)
+    
+    # identify orphans
+    # df['Peak'] = np.where(df['Cal_Delta_MH'])
+    def find_orphans(nsigma, fwhm, peak, deltaMH):
+        # window = float(nsigma) * fwhm / 2
+        distance = abs(peak - deltaMH)
+        max_distance = abs((float(nsigma) * fwhm / 2) / 2)
+        if distance <= max_distance:
+            ID = 'PEAK' # better to use the actual value?
+        else:
+            ID = 'ORPHAN'
+        return ID
+    df['Peak'] = df.apply(lambda x: find_orphans(nsigma, x['FWHM'], x['ClosestPeak'], x['Cal_Delta_MH']), axis = 1)
     
     # TO CHECK, print by BIN
     # outfile = os.path.join("D:/tmp/kk/", bin+"_kk.tsv")
@@ -125,7 +135,7 @@ def main(args):
 
     logging.info("parallel the operations by BIN")
     with concurrent.futures.ProcessPoolExecutor(max_workers=args.n_workers) as executor:        
-        df = executor.map(bin_operations, list(df.groupby("bin")), repeat(apex_list))
+        df = executor.map(bin_operations, list(df.groupby("bin")), repeat(apex_list), repeat(args.nsigma))
     df = pd.concat(df)
     logging.info("sort by DeltaMax cal")
     df.sort_values(by=[col_CalDeltaMH], inplace=True)
@@ -167,7 +177,7 @@ if __name__ == '__main__':
     parser.add_argument('-f',  '--fwhm_filename', default='MAD_and_FWHM_calculations.txt', help='File name with the FWHM value (default: %(default)s)')    
     parser.add_argument('-mn', '--minDelta', default=-500, help='Minimum Delta Mass (default: %(default)s)')
     parser.add_argument('-mx', '--maxDelta', default=500, help='Maximum Delta Mass (default: %(default)s)')
-    parser.add_argument('-s',  '--nsigma', default=1.5, help='Coefficient of Sigma (default: %(default)s)')
+    parser.add_argument('-s',  '--nsigma', default=3, help='Coefficient of Sigma (default: %(default)s)')
 
     parser.add_argument('-w',  '--n_workers', type=int, default=4, help='Number of threads/n_workers (default: %(default)s)')    
     parser.add_argument('-v', dest='verbose', action='store_true', help="Increase output verbosity")
