@@ -55,6 +55,27 @@ def concatInfiles(infile, fwhm_fname):
     #df['FWHM'] = df['FWHM'].astype(float)
     return df
 
+def closest_peak(apex_list, delta_MH):
+    '''
+    Assign a delta_MH value to the closest apex in a list
+    '''
+    peak = min(apex_list, key = lambda x : abs(x - delta_MH))
+    return peak
+
+    
+def find_orphans(nsigma, fwhm, peak, delta_MH):
+    '''
+    Identify orphans and peaks
+    '''
+    # window = float(nsigma) * fwhm / 2
+    distance = abs(peak - delta_MH)
+    max_distance = abs((float(nsigma) * fwhm / 2) / 2)
+    if distance <= max_distance:
+        ID = 'PEAK' # better to use the actual value?
+    else:
+        ID = 'ORPHAN'
+    return ID
+
 def bin_operations(df, apex_list, nsigma):
     '''
     Main function that handles the operations by BIN
@@ -63,23 +84,12 @@ def bin_operations(df, apex_list, nsigma):
     (bin_value, df) = int(df[0]), df[1]
     
     # assign to peaks
-    def closest_peak(apex_list, delta_MH):
-        peak = min(apex_list, key = lambda x : abs(x - delta_MH))
-        return peak
     df['ClosestPeak'] = df.apply(lambda x: closest_peak(apex_list, x['Cal_Delta_MH']), axis = 1)
-    
+
     # identify orphans
-    # df['Peak'] = np.where(df['Cal_Delta_MH'])
-    def find_orphans(nsigma, fwhm, peak, deltaMH):
-        # window = float(nsigma) * fwhm / 2
-        distance = abs(peak - deltaMH)
-        max_distance = abs((float(nsigma) * fwhm / 2) / 2)
-        if distance <= max_distance:
-            ID = 'PEAK' # better to use the actual value?
-        else:
-            ID = 'ORPHAN'
-        return ID
     df['Peak'] = df.apply(lambda x: find_orphans(nsigma, x['FWHM'], x['ClosestPeak'], x['Cal_Delta_MH']), axis = 1)
+    
+    # def FDR
     
     # TO CHECK, print by BIN
     # outfile = os.path.join("D:/tmp/kk/", bin+"_kk.tsv")
