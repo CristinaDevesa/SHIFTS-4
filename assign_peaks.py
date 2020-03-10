@@ -52,7 +52,11 @@ def concatInfiles(infile, fwhm_fname):
     fwhm_file = "{}/{}".format(foldername, fwhm_fname)
     fwhm = _extract_FWHM(fwhm_file)
     df['FWHM'] = float(fwhm)
-    #df['FWHM'] = df['FWHM'].astype(float)
+    # assign type to categorical columns
+    df['Experiment'] = df['Experiment'].astype('category')
+    df['filename'] = df['filename'].astype('category')
+    df['Label'] = df['Label'].astype('category')
+    df['IsotpicJump'] = df['IsotpicJump'].astype('category')
     return df
 
 def closest_peak(apex_list, delta_MH):
@@ -76,7 +80,29 @@ def find_orphans(nsigma, fwhm, peak, delta_MH):
         ID = 'ORPHAN'
     return ID
 
-def bin_operations(df, apex_list, nsigma):
+def get_local_FDR(df, xcorr_type):
+    '''
+    Calculate local FDR for one bin (1 Da)
+    '''
+    # sort bin
+    if xcorr_type == 0: # by Comet Xcorr
+        df.sort_values(by=['Xcor', 'Label'], inplace=True)
+    else: # by Comet cXcorr
+        df.sort_values(by=['CorXcor', 'Label'], inplace=True) # TODO: Fix SHIFTS cXcorr
+        
+    # count targets and decoys
+    df['Rank'] = df.groupby('Label').cumcount()+1 # This column can be deleted later
+    df['Rank_T'] = np.where(df['Label']=='Target', df['Rank'], 0)
+    df['Rank_T'] = df['Rank_T'].replace(to_replace=0, method='ffill')
+    df['Rank_D'] = np.where(df['Label'] == 'Decoy', df['Rank'], 0)
+    df['Rank_D'] =  df['Rank_D'].replace(to_replace=0, method='ffill')
+    df.drop(['Rank'], axis = 1, inplace = True)
+    
+    # calculate local FDR
+    df["LocalFDR"] = df["Rank_D"]/df["Rank_T"]
+    return df
+
+def bin_operations(df, apex_list, nsigma, xcorr):
     '''
     Main function that handles the operations by BIN
     '''
@@ -88,16 +114,23 @@ def bin_operations(df, apex_list, nsigma):
 
     # identify orphans
     df['Peak'] = df.apply(lambda x: find_orphans(nsigma, x['FWHM'], x['ClosestPeak'], x['Cal_Delta_MH']), axis = 1)
+    df['Peak'] = df['Peak'].astype('category')
     
-    # def FDR
+    # def peak_FDR():
+      # for each peak sort by xcorr (comet) # should we separate recom peaks?
+      # for each peak separate targets and decoys
+      # make new fdr column rank_D/rank/T
+    # def local_FDR():
+      # for each bin sort by xcorr (comet)
+      # for each bin separate targets and decoys
+      # make new fdr_column rank_D/rank_T
+    #def recom_FDR():
+      # for each recom peak sort by xcorr (recom)
     
     # TO CHECK, print by BIN
     # outfile = os.path.join("D:/tmp/kk/", bin+"_kk.tsv")
     # df.to_csv(outfile, sep="\t", index=False)
-    return df
-
-#def assign_closest_peak(df):
-    
+    return df  
     
 #################
 # Main function #
@@ -145,7 +178,9 @@ def main(args):
 
     logging.info("parallel the operations by BIN")
     with concurrent.futures.ProcessPoolExecutor(max_workers=args.n_workers) as executor:        
-        df = executor.map(bin_operations, list(df.groupby("bin")), repeat(apex_list), repeat(args.nsigma))
+        df = executor.map(bin_operations, list(df.groupby("bin")), repeat(apex_list),
+                                                                   repeat(args.nsigma),
+                                                                   repeat(args.xcorr))
     df = pd.concat(df)
     logging.info("sort by DeltaMax cal")
     df.sort_values(by=[col_CalDeltaMH], inplace=True)
@@ -188,6 +223,7 @@ if __name__ == '__main__':
     parser.add_argument('-mn', '--minDelta', default=-500, help='Minimum Delta Mass (default: %(default)s)')
     parser.add_argument('-mx', '--maxDelta', default=500, help='Maximum Delta Mass (default: %(default)s)')
     parser.add_argument('-s',  '--nsigma', default=3, help='Coefficient of Sigma (default: %(default)s)')
+    parser.add_argument('-x',  '--xcorr', default=1, help='Score for FDR calculation: 0=Xcorr, 1=cXcorr (default: %(default)s)')
 
     parser.add_argument('-w',  '--n_workers', type=int, default=4, help='Number of threads/n_workers (default: %(default)s)')    
     parser.add_argument('-v', dest='verbose', action='store_true', help="Increase output verbosity")
