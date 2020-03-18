@@ -80,6 +80,35 @@ def find_orphans(nsigma, fwhm, peak, delta_MH):
         ID = 'ORPHAN'
     return ID
 
+def get_peak_FDR(df, xcorr_type):
+    '''
+    Calculate peak FDR for each peak in one bin (1 Da)
+    '''
+    df['PeakFDR'] = -1
+    # identify peaks
+    peaks = df[df['Peak'] == 'PEAK'] # filter by Peak
+    grouped_peaks = peaks.groupby(['ClosestPeak']) # group by ClosestPeak
+    # df.get_group("group")
+    #grouped_peaks.groups # group info
+    for group in grouped_peaks:
+        group_index = group[1].index.values
+        df.loc[group_index] # repeat steps of local_FDR
+        # sort bin
+        if xcorr_type == 0: # by Comet Xcorr
+            df.loc[group_index].sort_values(by=['Xcor', 'Label'], inplace=True)
+        else: # by Comet cXcorr
+            df.loc[group_index].sort_values(by=['CorXcor', 'Label'], inplace=True) # TODO: Fix SHIFTS cXcorr
+        # count targets and decoys
+        df.loc[group_index]['Rank'] = df.loc[group_index].groupby('Label').cumcount()+1 # This column can be deleted later
+        df.loc[group_index]['Peak_Rank_T'] = np.where(df.loc[group_index]['Label']=='Target', df.loc[group_index]['Rank'], 0)
+        df.loc[group_index]['Peak_Rank_T'] = df.loc[group_index]['Peak_Rank_T'].replace(to_replace=0, method='ffill')
+        df.loc[group_index]['Peak_Rank_D'] = np.where(df.loc[group_index]['Label'] == 'Decoy', df.loc[group_index]['Rank'], 0)
+        df.loc[group_index]['Peak_Rank_D'] =  df.loc[group_index]['Peak_Rank_D'].replace(to_replace=0, method='ffill')
+        # calculate local FDR
+        df.loc[group_index]['PeakFDR'] = df.loc[group_index]['Peak_Rank_D']/df.loc[group_index]['Peak_Rank_T']
+    df.drop(['Rank'], axis = 1, inplace = True)
+    return df
+
 def get_local_FDR(df, xcorr_type):
     '''
     Calculate local FDR for one bin (1 Da)
@@ -92,17 +121,17 @@ def get_local_FDR(df, xcorr_type):
         
     # count targets and decoys
     df['Rank'] = df.groupby('Label').cumcount()+1 # This column can be deleted later
-    df['Rank_T'] = np.where(df['Label']=='Target', df['Rank'], 0)
-    df['Rank_T'] = df['Rank_T'].replace(to_replace=0, method='ffill')
-    df['Rank_D'] = np.where(df['Label'] == 'Decoy', df['Rank'], 0)
-    df['Rank_D'] =  df['Rank_D'].replace(to_replace=0, method='ffill')
+    df['Local_Rank_T'] = np.where(df['Label']=='Target', df['Rank'], 0)
+    df['Local_Rank_T'] = df['Local_Rank_T'].replace(to_replace=0, method='ffill')
+    df['Local_Rank_D'] = np.where(df['Label'] == 'Decoy', df['Rank'], 0)
+    df['Local_Rank_D'] =  df['Local_Rank_D'].replace(to_replace=0, method='ffill')
     df.drop(['Rank'], axis = 1, inplace = True)
     
     # calculate local FDR
-    df["LocalFDR"] = df["Rank_D"]/df["Rank_T"]
+    df['LocalFDR'] = df['Local_Rank_D']/df['Local_Rank_T']
     return df
 
-def bin_operations(df, apex_list, nsigma, xcorr):
+def bin_operations(df, apex_list, nsigma, xcorr_type):
     '''
     Main function that handles the operations by BIN
     '''
@@ -115,6 +144,9 @@ def bin_operations(df, apex_list, nsigma, xcorr):
     # identify orphans
     df['Peak'] = df.apply(lambda x: find_orphans(nsigma, x['FWHM'], x['ClosestPeak'], x['Cal_Delta_MH']), axis = 1)
     df['Peak'] = df['Peak'].astype('category')
+    
+    # calculate local FDR
+    df = get_local_FDR(df, xcorr_type)
     
     # def peak_FDR():
       # for each peak sort by xcorr (comet) # should we separate recom peaks?
