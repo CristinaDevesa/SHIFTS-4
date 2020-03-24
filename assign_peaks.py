@@ -85,6 +85,9 @@ def get_peak_FDR(df, xcorr_type):
     Calculate peak FDR for each peak in one bin (1 Da)
     '''
     df['PeakFDR'] = -1
+    df['Rank'] = -1
+    df['Peak_Rank_T'] = -1
+    df['Peak_Rank_D'] = -1
     # identify peaks
     peaks = df[df['Peak'] == 'PEAK'] # filter by Peak
     grouped_peaks = peaks.groupby(['ClosestPeak']) # group by ClosestPeak
@@ -147,6 +150,12 @@ def bin_operations(df, apex_list, nsigma, xcorr_type):
     
     # calculate local FDR
     df = get_local_FDR(df, xcorr_type)
+    
+    # calculate peak FDR
+    df = get_peak_FDR(df, xcorr_type)
+    
+    # create deltamass column
+    # df['deltaMass'] = df.apply(lambda x: df['deltaPeptide'] if (df['Peak']=='ORPHAN') else df['ClosestPeak'])
     
     # def peak_FDR():
       # for each peak sort by xcorr (comet) # should we separate recom peaks?
