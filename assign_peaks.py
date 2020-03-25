@@ -155,7 +155,7 @@ def bin_operations(df, apex_list, nsigma, xcorr_type):
     df = get_peak_FDR(df, xcorr_type)
     
     # create deltamass column
-    # df['deltaMass'] = df.apply(lambda x: df['deltaPeptide'] if (df['Peak']=='ORPHAN') else df['ClosestPeak'])
+    df['deltaMass'] = df.apply(lambda x: x['deltaPeptide'] if (x['Peak']=='ORPHAN') else x['ClosestPeak'])
     
     # def peak_FDR():
       # for each peak sort by xcorr (comet) # should we separate recom peaks?
