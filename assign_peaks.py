@@ -23,7 +23,8 @@ from itertools import repeat
 import tables
 import numpy as np
 
-
+#feather_data = pd.read_feather(r"C:\Users\Andrea\Desktop\data.ftr")
+#apex_list = _extract_ApexList(r"C:\Users\Andrea\Desktop\SHIFTS-4\testing\bin002_w7_SL4500Target_ApexList_mass.txt")
 
 ###################
 # Local functions #
@@ -73,12 +74,51 @@ def find_orphans(nsigma, fwhm, peak, delta_MH):
     '''
     # window = float(nsigma) * fwhm / 2
     distance = abs(peak - delta_MH)
-    max_distance = abs((float(nsigma) * fwhm / 2) / 2)
+    max_distance = abs(float(nsigma) * fwhm / 2)
     if distance <= max_distance:
         ID = 'PEAK' # better to use the actual value?
     else:
         ID = 'ORPHAN'
     return ID
+
+def get_spire_FDR(df, xcorr_type):
+    #This will be for the group of scans in a peak that are contained within 
+    #one recom-assignated theoretical deltamass. Then, when we do peak_FDR, we
+    #include these as well as the rest of the values in the peak.
+    #Cuando el peak y el spire se solapen, esos escanes lo sometería a ambas FDR
+    # How we will handle filtering is still to be determined.
+    '''
+    Calculate spire FDR for each spire in one bin (1 Da)
+    '''
+    df['SpireFDR'] = -1
+    df['Rank'] = -1
+    df['Spire_Rank_T'] = -1
+    df['Spire_Rank_D'] = -1
+    # TODO: Operations
+    # identify spires (filter by recom HERE OR IN RECOM?)
+    peaks = df[df['Peak'] == 'PEAK'] # filter by Peak
+    recom_peaks = peaks[peaks['XcorType'] == 'RECOM'] # XcorType needs to be created
+    #recom-identified scans are not necessarily peaks, what to do?
+    grouped_recom_peaks = recom_peaks.groupby(['ClosestPeak']) # group by ClosestPeak
+    for group in grouped_recom_peaks:
+        group_index = group[1].index.values
+        df.loc[group_index] # repeat steps of local_FDR
+        # sort bin
+        if xcorr_type == 0: # by Comet Xcorr
+            df.loc[group_index].sort_values(by=['Xcor', 'Label'], inplace=True)
+        else: # by Comet cXcorr
+            df.loc[group_index].sort_values(by=['CorXcor', 'Label'], inplace=True) # TODO: Fix SHIFTS cXcorr
+        # count targets and decoys
+        df.loc[group_index]['Rank'] = df.loc[group_index].groupby('Label').cumcount()+1 # This column can be deleted later
+        df.loc[group_index]['Spire_Rank_T'] = np.where(df.loc[group_index]['Label']=='Target', df.loc[group_index]['Rank'], 0)
+        df.loc[group_index]['Spire_Rank_T'] = df.loc[group_index]['Spire_Rank_T'].replace(to_replace=0, method='ffill')
+        df.loc[group_index]['Spire_Rank_D'] = np.where(df.loc[group_index]['Label'] == 'Decoy', df.loc[group_index]['Rank'], 0)
+        df.loc[group_index]['Spire_Rank_D'] =  df.loc[group_index]['Spire_Rank_D'].replace(to_replace=0, method='ffill')
+        # calculate local FDR
+        df.loc[group_index]['SpireFDR'] = df.loc[group_index]['Spire_Rank_D']/df.loc[group_index]['Spire_Rank_T']
+    # TODO: End Operations
+    df.drop(['Rank'], axis = 1, inplace = True)
+    return df
 
 def get_peak_FDR(df, xcorr_type):
     '''
@@ -134,6 +174,28 @@ def get_local_FDR(df, xcorr_type):
     df['LocalFDR'] = df['Local_Rank_D']/df['Local_Rank_T']
     return df
 
+def get_global_FDR(df, xcorr_type):
+    '''
+    Calculate global FDR
+    '''
+    # sort by score
+    if xcorr_type == 0: # by Comet Xcorr
+        df.sort_values(by=['Xcor', 'Label'], inplace=True)
+    else: # by Comet cXcorr
+        df.sort_values(by=['CorXcor', 'Label'], inplace=True) # TODO: Fix SHIFTS cXcorr
+        
+    # count targets and decoys
+    df['Rank'] = df.groupby('Label').cumcount()+1 # This column can be deleted later
+    df['Global_Rank_T'] = np.where(df['Label']=='Target', df['Rank'], 0)
+    df['Global_Rank_T'] = df['Global_Rank_T'].replace(to_replace=0, method='ffill')
+    df['Global_Rank_D'] = np.where(df['Label'] == 'Decoy', df['Rank'], 0)
+    df['Global_Rank_D'] =  df['Global_Rank_D'].replace(to_replace=0, method='ffill')
+    df.drop(['Rank'], axis = 1, inplace = True)
+    
+    # calculate local FDR
+    df['LocalFDR'] = df['Local_Rank_D']/df['Local_Rank_T']
+    return df
+
 def bin_operations(df, apex_list, nsigma, xcorr_type):
     '''
     Main function that handles the operations by BIN
@@ -145,8 +207,8 @@ def bin_operations(df, apex_list, nsigma, xcorr_type):
     df['ClosestPeak'] = df.apply(lambda x: closest_peak(apex_list, x['Cal_Delta_MH']), axis = 1)
 
     # identify orphans
-    df['Peak'] = df.apply(lambda x: find_orphans(nsigma, x['FWHM'], x['ClosestPeak'], x['Cal_Delta_MH']), axis = 1)
-    df['Peak'] = df['Peak'].astype('category')
+    df['PeakAssignation'] = df.apply(lambda x: find_orphans(nsigma, x['FWHM'], x['ClosestPeak'], x['Cal_Delta_MH']), axis = 1)
+    df['PeakAssignation'] = df['PeakAssignation'].astype('category')
     
     # calculate local FDR
     df = get_local_FDR(df, xcorr_type)
@@ -154,8 +216,11 @@ def bin_operations(df, apex_list, nsigma, xcorr_type):
     # calculate peak FDR
     df = get_peak_FDR(df, xcorr_type)
     
+    # calculate spire FDR
+    df = get_spire_FDR(df, xcorr_type)
+    
     # create deltamass column
-    df['deltaMass'] = df.apply(lambda x: x['deltaPeptide'] if (x['Peak']=='ORPHAN') else x['ClosestPeak'])
+    df['deltaMass'] = df.apply(lambda x: x['deltaPeptide'] if (x['PeakAssignation']=='ORPHAN') else x['ClosestPeak'])
     
     # def peak_FDR():
       # for each peak sort by xcorr (comet) # should we separate recom peaks?
@@ -223,6 +288,8 @@ def main(args):
                                                                    repeat(args.nsigma),
                                                                    repeat(args.xcorr))
     df = pd.concat(df)
+    logging.info("calculate gobal FDR")
+    df = get_global_FDR(df, args.xcorr)
     logging.info("sort by DeltaMax cal")
     df.sort_values(by=[col_CalDeltaMH], inplace=True)
     df.reset_index(drop=True, inplace=True)
