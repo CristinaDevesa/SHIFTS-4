@@ -16,6 +16,7 @@ import os
 import sys
 import argparse
 import logging
+import math
 import pandas as pd
 import numpy as np
 import concurrent.futures
@@ -98,10 +99,45 @@ def getErrors(df):
     df['rel_error'] = df['abs_error'] / df['theo_mz'] * 1e6
     return df
 
-def filterPeptides(df):
+def filterPeptides(df, recom, cxcorrmin, ppmmax):
     '''    
     Filter and keep target peptides that match Xcorrmin and PPMmax conditions.
+    This high-quality subpopulation will be used for calibration.
     '''
+    
+    def _correctXcorr(charge, xcorr, length):
+        if charge < 3:
+            cxcorr = math.log10(xcorr) / math.log10(2*length)
+        else:
+            cxcorr = math.log10(xcorr/1.22) / math.log10(2*length)
+        return cxcorr
+    
+    if recom == 0: #comet input
+        #calculate cxcorr
+        df.insert(df.columns.get_loc('xcorr')+1, 'xcorr_corr', np.nan)
+        df['xcorr_corr'] = df.apply(lambda x: _correctXcorr(x['charge'],
+                                                            x['xcorr'],
+                                                            len(x['plain_peptide'])),
+                                    axis = 1)
+        #keep targets
+        df_filtered = df[~df['protein'].str.startswith('DECOY')]
+        #keep cxcorr > cxcorrmin
+        df_filtered = df_filtered[df_filtered['xcorr_corr']>=cxcorrmin]
+        #keep abs_error <= ppmmax
+        df_filtered = df_filtered[df_filtered['abs_error']<=ppmmax]
+        
+    else: #recom input
+        #make best_cxcorr column
+        df.insert(df.columns.get_loc('Best_Xcorr')+1, 'Best_cXcorr', np.nan)
+        df['Best_cXcorr'] = df.apply(lambda x: x['xcorr_corr'] if (x['xcorr_corr']>x['Closest_Xcorr_corr']) else x['Closest_Xcorr_corr'], axis = 1)
+        
+        #keep targets
+        df_filtered = df[~df['protein'].str.startswith('DECOY')]
+        #keep cxcorr > cxcorrmin
+        df_filtered = df_filtered[df_filtered['Best_cXcorr']>=cxcorrmin]
+        #keep abs_error <= ppmmax
+        df_filtered = df_filtered[df_filtered['abs_error']<=ppmmax]
+        
     return df_filtered
 
 
@@ -120,8 +156,8 @@ def main(args):
     df = getTheoMZ(df)
     # Calculate errors
     df = getErrors(df)
-    # Filter identifications
-    df_filtered = filterPeptides(df) # We still need the original later, don't overwrite
+    # Filter identifications (for comet, calculate cxcorr!)
+    df_filtered = filterPeptides(df, recom, args.cxcorrmin, args.ppmmax) # We still need the original later, don't overwrite
     
 if __name__ == '__main__':
 
