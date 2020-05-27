@@ -50,8 +50,6 @@ AAs = {'A': 71.037114,
        'Y': 163.063320,
        'V': 99.068414,
        'R': 156.101111,
-       'Y': 163.063329,
-       'W': 186.079313,
        'O': 132.089878}
 M_proton = 1.007825
 M_oxygen = 15.994915
@@ -75,7 +73,7 @@ def getTheoMZ(df):
     '''    
     Calculate theoretical MZ using the PSM sequence.
     '''
-    df.insert(df.columns.get_loc("exp_mz")+1, 'theo_mz', 0)
+    df.insert(df.columns.get_loc('exp_mz')+1, 'theo_mz', np.nan)
     
     def _PSMtoMZ(sequence, charge):
         total_aas = 2*M_proton + M_oxygen
@@ -88,8 +86,23 @@ def getTheoMZ(df):
         return MZ
     
     df['theo_mz'] = df.apply(lambda x: _PSMtoMZ(x['plain_peptide'], x['charge']), axis = 1)
-    
     return df
+
+def getErrors(df):
+    '''    
+    Calculate absolute (in m/z) and relative (in ppm) errors.
+    '''
+    df.insert(df.columns.get_loc('theo_mz')+1, 'abs_error', np.nan)
+    df.insert(df.columns.get_loc('abs_error')+1, 'rel_error', np.nan)
+    df['abs_error'] = df['exp_mz'] - df['theo_mz']
+    df['rel_error'] = df['abs_error'] / df['theo_mz'] * 1e6
+    return df
+
+def filterPeptides(df):
+    '''    
+    Filter and keep target peptides that match Xcorrmin and PPMmax conditions.
+    '''
+    return df_filtered
 
 
 #################
@@ -101,7 +114,14 @@ def main(args):
     Main function
     '''
     
+    # Read infile
     df, recom = readInfile(args.infile)
+    # Calculate theoretical MZ
+    df = getTheoMZ(df)
+    # Calculate errors
+    df = getErrors(df)
+    # Filter identifications
+    df_filtered = filterPeptides(df) # We still need the original later, don't overwrite
     
 if __name__ == '__main__':
 
