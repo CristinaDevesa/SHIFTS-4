@@ -149,6 +149,14 @@ def getSysError(df_filtered):
     avg_ppm_error = mad / phi
     return sys_error, avg_ppm_error
 
+def rawCorrection(df, sys_error):
+    '''
+    Correct exp_mz values from infile using the systematic error.
+    '''
+    df.insert(df.columns.get_loc('exp_mz')+1, 'exp_mz_cal', np.nan)
+    df['exp_mz_cal'] = df['exp_mz'] - sys_error
+    return df
+
 
 #################
 # Main function #
@@ -170,6 +178,11 @@ def main(args):
     # Use filtered set to calculate systematic error
     sys_error, avg_ppm_error = getSysError(df_filtered)
     # Use systematic error to correct infile
+    df = rawCorrection(df, sys_error)
+    # TODO: DMCal # Comet/Recom handling?
+    #Write to file
+    
+    #TODO: parallelize?
     
 if __name__ == '__main__':
 
