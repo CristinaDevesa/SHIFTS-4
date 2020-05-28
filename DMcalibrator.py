@@ -125,7 +125,6 @@ def filterPeptides(df, recom, cxcorrmin, ppmmax):
         df_filtered = df_filtered[df_filtered['xcorr_corr']>=cxcorrmin]
         #keep abs_error <= ppmmax
         df_filtered = df_filtered[df_filtered['abs_error']<=ppmmax]
-        
     else: #recom input
         #make best_cxcorr column
         df.insert(df.columns.get_loc('Best_Xcorr')+1, 'Best_cXcorr', np.nan)
@@ -137,8 +136,18 @@ def filterPeptides(df, recom, cxcorrmin, ppmmax):
         df_filtered = df_filtered[df_filtered['Best_cXcorr']>=cxcorrmin]
         #keep abs_error <= ppmmax
         df_filtered = df_filtered[df_filtered['abs_error']<=ppmmax]
-        
     return df_filtered
+
+def getSysError(df_filtered):
+    '''
+    Calculate systematic error and average PPM error.
+    '''
+    sys_error = df_filtered['abs_error'].median()
+    
+    phi = math.sqrt(2) * math.erf(-1)
+    mad = df_filtered['abs_error'].mad()
+    avg_ppm_error = mad / phi
+    return sys_error, avg_ppm_error
 
 
 #################
@@ -156,8 +165,11 @@ def main(args):
     df = getTheoMZ(df)
     # Calculate errors
     df = getErrors(df)
-    # Filter identifications (for comet, calculate cxcorr!)
-    df_filtered = filterPeptides(df, recom, args.cxcorrmin, args.ppmmax) # We still need the original later, don't overwrite
+    # Filter identifications
+    df_filtered = filterPeptides(df, recom, args.cxcorrmin, args.ppmmax)
+    # Use filtered set to calculate systematic error
+    sys_error, avg_ppm_error = getSysError(df_filtered)
+    # Use systematic error to correct infile
     
 if __name__ == '__main__':
 
