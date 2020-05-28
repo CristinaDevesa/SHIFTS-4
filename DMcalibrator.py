@@ -60,9 +60,10 @@ M_oxygen = 15.994915
 ###################
 
 # Calibrate mass separately for each raw file.
+
 def readInfile(infile):
     '''    
-    Read input file and determine if it is Comet or Recom.
+    Read input file to dataframe and determine if it is Comet or Recom.
     '''
     df = pd.read_csv(infile, skiprows=1, sep="\t", float_precision='high')
     recom = 0
@@ -157,6 +158,17 @@ def rawCorrection(df, sys_error):
     df['exp_mz_cal'] = df['exp_mz'] - sys_error
     return df
 
+def getDMcal(df):
+    '''
+    Calculate calibrated DM values.
+    '''
+    df.insert(df.columns.get_loc('exp_mz_cal')+1, 'exp_dm_cal', np.nan)
+    df['exp_dm_cal'] = df['exp_mz_cal'] - df['theo_mz']
+    #if recom == 0: #comet input
+        #  se calcularían a partir de ExpMZCal y TeorMZs para comet
+    #else: #recom input #actually we can just handle this later
+    return df
+
 
 #################
 # Main function #
@@ -167,22 +179,33 @@ def main(args):
     Main function
     '''
     
-    # Read infile
-    df, recom = readInfile(args.infile)
-    # Calculate theoretical MZ
-    df = getTheoMZ(df)
-    # Calculate errors
-    df = getErrors(df)
-    # Filter identifications
-    df_filtered = filterPeptides(df, recom, args.cxcorrmin, args.ppmmax)
-    # Use filtered set to calculate systematic error
-    sys_error, avg_ppm_error = getSysError(df_filtered)
-    # Use systematic error to correct infile
-    df = rawCorrection(df, sys_error)
-    # TODO: DMCal # Comet/Recom handling?
-    #Write to file
+    logging.info("read input file list")
+    with open(args.infile) as f:
+        infile_list = f.readlines()
+    infile_list = [x.strip() for x in infile_list] # remove whitespace
     
     #TODO: parallelize?
+    # with concurrent.futures.ProcessPoolExecutor(max_workers=args.n_workers) as executor:
+    
+    for infile in infile_list: 
+        # Read infile
+        df, recom = readInfile(infile)
+        # Calculate theoretical MZ
+        df = getTheoMZ(df)
+        # Calculate errors
+        df = getErrors(df)
+        # Filter identifications
+        df_filtered = filterPeptides(df, recom, args.cxcorrmin, args.ppmmax)
+        # Use filtered set to calculate systematic error
+        sys_error, avg_ppm_error = getSysError(df_filtered)
+        # Use systematic error to correct infile
+        df = rawCorrection(df, sys_error)
+        # Calculate DMCal 
+        df = getDMcal(df)
+        #Write to txt file
+        outfile = infile[:-4] + '_calibrated.txt'
+        df.to_csv(outfile, index=False, encoding='utf-8')
+
     
 if __name__ == '__main__':
 
@@ -196,7 +219,7 @@ if __name__ == '__main__':
             python peak_modeller.py
 
         ''')
-    parser.add_argument('-i', '--infile', required=True, help='Input file from COMET or RECOM')
+    parser.add_argument('-i', '--infile', required=True, help='List of input files from COMET or RECOM')
     
     parser.add_argument('-c', '--cxcorrmin', required=True, help='Minimum cXcorr')
     parser.add_argument('-p', '--ppmmax', required=True, help='Maximum PPM')
