@@ -195,7 +195,7 @@ def main(args):
         # Calculate errors
         df = getErrors(df)
         # Filter identifications
-        df_filtered = filterPeptides(df, recom, args.cxcorrmin, args.ppmmax)
+        df_filtered = filterPeptides(df, recom, float(args.cxcorrmin), float(args.ppmmax))
         # Use filtered set to calculate systematic error
         sys_error, avg_ppm_error = getSysError(df_filtered)
         # Use systematic error to correct infile
