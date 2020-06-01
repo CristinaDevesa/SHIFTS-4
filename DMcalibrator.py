@@ -100,7 +100,7 @@ def getErrors(df):
     df['rel_error'] = df['abs_error'] / df['theo_mz'] * 1e6
     return df
 
-def filterPeptides(df, recom, cxcorrmin, ppmmax):
+def filterPeptides(df, recom, scoremin, ppmmax):
     '''    
     Filter and keep target peptides that match Xcorrmin and PPMmax conditions.
     This high-quality subpopulation will be used for calibration.
@@ -122,8 +122,8 @@ def filterPeptides(df, recom, cxcorrmin, ppmmax):
                                     axis = 1)
         #keep targets
         df_filtered = df[~df['protein'].str.startswith('DECOY')]
-        #keep cxcorr > cxcorrmin
-        df_filtered = df_filtered[df_filtered['xcorr_corr']>=cxcorrmin]
+        #keep score > scoremin
+        df_filtered = df_filtered[df_filtered['xcorr_corr']>=scoremin]
         #keep abs_error <= ppmmax
         df_filtered = df_filtered[df_filtered['abs_error']<=ppmmax]
     else: #recom input
@@ -133,8 +133,8 @@ def filterPeptides(df, recom, cxcorrmin, ppmmax):
         
         #keep targets
         df_filtered = df[~df['protein'].str.startswith('DECOY')]
-        #keep cxcorr > cxcorrmin
-        df_filtered = df_filtered[df_filtered['Best_cXcorr']>=cxcorrmin]
+        #keep cxcorr > scoremin
+        df_filtered = df_filtered[df_filtered['Best_cXcorr']>=scoremin]
         #keep abs_error <= ppmmax
         df_filtered = df_filtered[df_filtered['abs_error']<=ppmmax]
     return df_filtered
@@ -187,7 +187,13 @@ def main(args):
     #TODO: parallelize?
     # with concurrent.futures.ProcessPoolExecutor(max_workers=args.n_workers) as executor:
     
+    log_str = str(len(infile_list)) + " file(s) to calibrate..."
+    logging.info(log_str)
+    i = 0
     for infile in infile_list: 
+        i += 1
+        log_str = "calibrating file " + str(i) + " of " + str(len(infile_list))
+        logging.info(log_str)
         # Read infile
         df, recom = readInfile(infile)
         # Calculate theoretical MZ
@@ -195,7 +201,7 @@ def main(args):
         # Calculate errors
         df = getErrors(df)
         # Filter identifications
-        df_filtered = filterPeptides(df, recom, float(args.cxcorrmin), float(args.ppmmax))
+        df_filtered = filterPeptides(df, recom, float(args.scoremin), float(args.ppmmax))
         # Use filtered set to calculate systematic error
         sys_error, avg_ppm_error = getSysError(df_filtered)
         # Use systematic error to correct infile
@@ -221,8 +227,12 @@ if __name__ == '__main__':
         ''')
     parser.add_argument('-i', '--infile', required=True, help='List of input files from COMET or RECOM')
     
-    parser.add_argument('-c', '--cxcorrmin', required=True, help='Minimum cXcorr')
-    parser.add_argument('-p', '--ppmmax', required=True, help='Maximum PPM')
+    parser.add_argument('-s', '--scoremin', required=True, default=0.2, help='Minimum score')
+    parser.add_argument('-p', '--ppmmax', required=True, default=10, help='Maximum PPM error')
+    # TODO put all this in comet-like params file
+    parser.add_argument('-sc', '--scorecolumn', required=True, default=6, help='Position of the column containing the score')
+    parser.add_argument('-zc', '--chargecolumn', required=True, default=2, help='Position of the column containing the charge')
+    parser.add_argument('-mc', '--mzcolumn', required=True, default=19, help='Position of the column containing the experimental m/z')
 
     parser.add_argument('-w', '--n_workers', type=int, default=4, help='Number of threads/n_workers (default: %(default)s)')    
     parser.add_argument('-v', dest='verbose', action='store_true', help="Increase output verbosity")
