@@ -14,16 +14,16 @@ __status__ = "Development"
 # import modules
 import os
 import sys
+import configparser
 import argparse
 import logging
 import math
 import pandas as pd
 import numpy as np
-import concurrent.futures
-from itertools import repeat
 pd.options.mode.chained_assignment = None  # default='warn'
 
 #infile = r"C:\Users\Andrea\Desktop\SHIFTS-4\testing\recom.txt"
+# os.chdir(r"C:\Users\Andrea\Desktop\SHIFTS-4")
 
 ###################
 # Aminoacids #
@@ -100,7 +100,7 @@ def getErrors(df):
     df['rel_error'] = df['abs_error'] / df['theo_mz'] * 1e6
     return df
 
-def filterPeptides(df, recom, scoremin, ppmmax):
+def filterPeptides(df, recom, scoremin, ppmmax, scorecolumn, chargecolumn, mzcolumn, seqcolumn):
     '''    
     Filter and keep target peptides that match Xcorrmin and PPMmax conditions.
     This high-quality subpopulation will be used for calibration.
@@ -113,7 +113,7 @@ def filterPeptides(df, recom, scoremin, ppmmax):
             cxcorr = math.log10(xcorr/1.22) / math.log10(2*length)
         return cxcorr
     
-    if recom == 0: #comet input
+    if recom == 0: #non-recom input
         #calculate cxcorr
         df.insert(df.columns.get_loc('xcorr')+1, 'xcorr_corr', np.nan)
         df['xcorr_corr'] = df.apply(lambda x: _correctXcorr(x['charge'],
@@ -201,7 +201,14 @@ def main(args):
         # Calculate errors
         df = getErrors(df)
         # Filter identifications
-        df_filtered = filterPeptides(df, recom, float(args.scoremin), float(args.ppmmax))
+        df_filtered = filterPeptides(df,
+                                     recom,
+                                     float(config._sections['Filtering']['score_min']),
+                                     float(config._sections['Filtering']['ppm_max']),
+                                     int(config._sections['Input']['scorecolumn']),
+                                     int(config._sections['Input']['zcolumn']),
+                                     int(config._sections['Input']['mzcolumn']),
+                                     int(config._sections['Input']['seqcolumn']))
         # Use filtered set to calculate systematic error
         sys_error, avg_ppm_error = getSysError(df_filtered)
         # Use systematic error to correct infile
@@ -219,24 +226,46 @@ if __name__ == '__main__':
 
     # parse arguments
     parser = argparse.ArgumentParser(
-        description='Peak Modeller',
+        description='DMcalibrator',
         epilog='''
         Example:
-            python peak_modeller.py
+            python DMcalibrator.py
 
         ''')
-    parser.add_argument('-i', '--infile', required=True, help='List of input files from COMET or RECOM')
+        
+    defaultconfig = os.path.join(os.path.dirname(__file__), "config/DMcalibrator.ini")
     
-    parser.add_argument('-s', '--scoremin', required=True, default=0.2, help='Minimum score')
-    parser.add_argument('-p', '--ppmmax', required=True, default=10, help='Maximum PPM error')
-    # TODO put all this in comet-like params file
-    parser.add_argument('-sc', '--scorecolumn', required=True, default=6, help='Position of the column containing the score')
-    parser.add_argument('-zc', '--chargecolumn', required=True, default=2, help='Position of the column containing the charge')
-    parser.add_argument('-mc', '--mzcolumn', required=True, default=19, help='Position of the column containing the experimental m/z')
+    parser.add_argument('-i', '--infile', required=True, help='List of input files from COMET or RECOM')
+    parser.add_argument('-c', '--config', default=defaultconfig, help='Path to custom config.ini file')
+    
+    # these will overwrite the config if specified
+    parser.add_argument('-s', '--scoremin', default=None, help='Minimum score')
+    parser.add_argument('-p', '--ppmmax', default=None, help='Maximum PPM error')
+    parser.add_argument('-sc', '--scorecolumn', default=None, help='Position of the column containing the score')
+    parser.add_argument('-zc', '--chargecolumn', default=None, help='Position of the column containing the charge')
+    parser.add_argument('-mc', '--mzcolumn', default=None, help='Position of the column containing the experimental m/z')
 
     parser.add_argument('-w', '--n_workers', type=int, default=4, help='Number of threads/n_workers (default: %(default)s)')    
     parser.add_argument('-v', dest='verbose', action='store_true', help="Increase output verbosity")
     args = parser.parse_args()
+    
+    # parse config
+    config = configparser.ConfigParser(inline_comment_prefixes='#')
+    config.read(args.config)
+    if args.scoremin is not None:
+        config._sections['Filtering']['score_min'] = args.scoremin
+    if args.ppmmax is not None:
+        config._sections['Filtering']['ppm_max'] = args.ppmmax
+    if args.scorecolumn is not None:
+        config._sections['Input']['scorecolumn'] = args.scorecolumn
+    if args.mzcolumn is not None:
+        config._sections['Input']['mzcolumn'] = args.mzcolumn
+    if args.zcolumn is not None:
+        config._sections['Input']['zcolumn'] = args.zcolumn
+    if args.seqcolumn is not None:
+        config._sections['Input']['seqcolumn'] = args.seqcolumn
+    # TODO: if something is changed, write a copy of ini
+        
 
     # logging debug level. By default, info level
     if args.verbose:
