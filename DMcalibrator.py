@@ -94,6 +94,9 @@ def filterPeptides(df, scoremin, ppmmax, scorecolumn, chargecolumn, mzcolumn, se
     #keep abs_error <= ppmmax
     df_filtered = df_filtered[df_filtered['abs_error']
                               <=ppmmax]
+    
+    logging.info("Number of PSMs before filtering: " + str(df.shape[0]))
+    logging.info("Number of PSMs after filtering: " + str(df_filtered.shape[0]))
 
     return df_filtered
 
@@ -106,6 +109,8 @@ def getSysError(df_filtered):
     phi = math.sqrt(2) * math.erf(-1)
     mad = df_filtered['abs_error'].mad()
     avg_ppm_error = mad / phi
+    logging.info("Systematic error: " + str(sys_error))
+    logging.info("Average ppm error: " + str(avg_ppm_error))
     return sys_error, avg_ppm_error
 
 def rawCorrection(df, sys_error):
