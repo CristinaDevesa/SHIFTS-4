@@ -26,36 +26,6 @@ pd.options.mode.chained_assignment = None  # default='warn'
 # os.chdir(r"C:\Users\Andrea\Desktop\SHIFTS-4")
 
 ###################
-# Aminoacids #
-###################
-
-AAs = {'A': 71.037114,
-       'R': 156.101111,
-       'N': 114.042927,
-       'D': 115.026943,
-       'C': 103.009185,
-       'E': 129.042593,
-       'Q': 128.058578,
-       'G': 57.021464,
-       'H': 137.058912,
-       'I': 113.084064,
-       'L': 113.084064,
-       'K': 128.094963,
-       'M': 131.040485,
-       'F': 147.068414,
-       'P': 97.052764,
-       'S': 87.032028,
-       'T': 101.047679,
-       'U': 150.953630,
-       'W': 186.079313,
-       'Y': 163.063320,
-       'V': 99.068414,
-       'R': 156.101111,
-       'O': 132.089878}
-M_proton = 1.007825
-M_oxygen = 15.994915
-
-###################
 # Local functions #
 ###################
 
@@ -75,16 +45,17 @@ def getTheoMZ(df):
     '''    
     Calculate theoretical MZ using the PSM sequence.
     '''
-    df.insert(df.columns.get_loc('exp_mz')+1, 'theo_mz', np.nan)
+    AAs = dict(config._sections['Aminoacids'])
+    df.insert(df.columns.get_loc(config._sections['Input']['mzcolumn'])+1, 'theo_mz', np.nan)
     
     def _PSMtoMZ(sequence, charge):
-        total_aas = 2*M_proton + M_oxygen
+        total_aas = 2*config._sections['Masses']['M_proton'] + config._sections['Masses']['M_oxygen']
         for aa in sequence:
-            if aa in AAs:
+            if aa.lower() in AAs:
                 total_aas += AAs[aa]
             #else: # aminoacid not in list (ask for user input?)
                 # TODO
-        MZ = (total_aas + charge*M_proton) / charge
+        MZ = (total_aas + charge*config._sections['Masses']['M_proton']) / charge
         return MZ
     
     df['theo_mz'] = df.apply(lambda x: _PSMtoMZ(x['plain_peptide'], x['charge']), axis = 1)
@@ -113,30 +84,16 @@ def filterPeptides(df, recom, scoremin, ppmmax, scorecolumn, chargecolumn, mzcol
             cxcorr = math.log10(xcorr/1.22) / math.log10(2*length)
         return cxcorr
     
-    if recom == 0: #non-recom input
-        #calculate cxcorr
-        df.insert(df.columns.get_loc('xcorr')+1, 'xcorr_corr', np.nan)
-        df['xcorr_corr'] = df.apply(lambda x: _correctXcorr(x['charge'],
-                                                            x['xcorr'],
-                                                            len(x['plain_peptide'])),
-                                    axis = 1)
-        #keep targets
-        df_filtered = df[~df['protein'].str.startswith('DECOY')]
-        #keep score > scoremin
-        df_filtered = df_filtered[df_filtered['xcorr_corr']>=scoremin]
-        #keep abs_error <= ppmmax
-        df_filtered = df_filtered[df_filtered['abs_error']<=ppmmax]
-    else: #recom input
-        #make best_cxcorr column
-        df.insert(df.columns.get_loc('Best_Xcorr')+1, 'Best_cXcorr', np.nan)
-        df['Best_cXcorr'] = df.apply(lambda x: x['xcorr_corr'] if (x['xcorr_corr']>x['Closest_Xcorr_corr']) else x['Closest_Xcorr_corr'], axis = 1)
-        
-        #keep targets
-        df_filtered = df[~df['protein'].str.startswith('DECOY')]
-        #keep cxcorr > scoremin
-        df_filtered = df_filtered[df_filtered['Best_cXcorr']>=scoremin]
-        #keep abs_error <= ppmmax
-        df_filtered = df_filtered[df_filtered['abs_error']<=ppmmax]
+    #keep targets
+    df_filtered = df[~df[config._sections['Input']['proteincolumn']]
+                     .str.startswith(config._sections['Input']['decoyprefix'])]
+    #keep score > scoremin
+    df_filtered = df_filtered[df_filtered[config._sections['Input']['scorecolumn']]
+                              >=scoremin]
+    #keep abs_error <= ppmmax
+    df_filtered = df_filtered[df_filtered['abs_error']
+                              <=ppmmax]
+
     return df_filtered
 
 def getSysError(df_filtered):
@@ -158,15 +115,14 @@ def rawCorrection(df, sys_error):
     df['exp_mz_cal'] = df['exp_mz'] - sys_error
     return df
 
-def getDMcal(df):
+def getDMcal(df, dmcolumn):
     '''
     Calculate calibrated DM values.
     '''
-    df.insert(df.columns.get_loc('exp_mz_cal')+1, 'exp_dm_cal', np.nan)
-    df['exp_dm_cal'] = df['exp_mz_cal'] - df['theo_mz']
-    #if recom == 0: #comet input
-        #  se calcularían a partir de ExpMZCal y TeorMZs para comet
-    #else: #recom input #actually we can just handle this later
+    df.insert(df.columns.get_loc(config._sections['Input']['mzcolumn'])+1,
+              'exp_dm_cal',
+              np.nan)
+    df['exp_dm_cal'] = df[config._sections['Input']['mzcolumn']] - df['theo_mz']
     return df
 
 
@@ -203,18 +159,18 @@ def main(args):
         # Filter identifications
         df_filtered = filterPeptides(df,
                                      recom,
-                                     float(config._sections['Filtering']['score_min']),
-                                     float(config._sections['Filtering']['ppm_max']),
-                                     int(config._sections['Input']['scorecolumn']),
-                                     int(config._sections['Input']['zcolumn']),
-                                     int(config._sections['Input']['mzcolumn']),
-                                     int(config._sections['Input']['seqcolumn']))
+                                     config._sections['Filtering']['score_min'],
+                                     config._sections['Filtering']['ppm_max'],
+                                     config._sections['Input']['scorecolumn'],
+                                     config._sections['Input']['zcolumn'],
+                                     config._sections['Input']['mzcolumn'],
+                                     config._sections['Input']['seqcolumn'])
         # Use filtered set to calculate systematic error
         sys_error, avg_ppm_error = getSysError(df_filtered)
         # Use systematic error to correct infile
         df = rawCorrection(df, sys_error)
         # Calculate DMCal 
-        df = getDMcal(df)
+        df = getDMcal(df, config._sections['Input']['dmcolumn'])
         #Write to txt file
         outfile = infile[:-4] + '_calibrated.txt'
         df.to_csv(outfile, index=False, encoding='utf-8')
@@ -235,7 +191,7 @@ if __name__ == '__main__':
         
     defaultconfig = os.path.join(os.path.dirname(__file__), "config/DMcalibrator.ini")
     
-    parser.add_argument('-i', '--infile', required=True, help='List of input files from COMET or RECOM')
+    parser.add_argument('-i', '--infile', required=True, help='List of input files')
     parser.add_argument('-c', '--config', default=defaultconfig, help='Path to custom config.ini file')
     
     # these will overwrite the config if specified
@@ -254,16 +210,22 @@ if __name__ == '__main__':
     config.read(args.config)
     if args.scoremin is not None:
         config._sections['Filtering']['score_min'] = args.scoremin
+        config._sections['Logging']['create_INI'] = 1
     if args.ppmmax is not None:
         config._sections['Filtering']['ppm_max'] = args.ppmmax
+        config._sections['Logging']['create_INI'] = 1
     if args.scorecolumn is not None:
         config._sections['Input']['scorecolumn'] = args.scorecolumn
+        config._sections['Logging']['create_INI'] = 1
     if args.mzcolumn is not None:
         config._sections['Input']['mzcolumn'] = args.mzcolumn
+        config._sections['Logging']['create_INI'] = 1
     if args.zcolumn is not None:
         config._sections['Input']['zcolumn'] = args.zcolumn
+        config._sections['Logging']['create_INI'] = 1
     if args.seqcolumn is not None:
         config._sections['Input']['seqcolumn'] = args.seqcolumn
+        config._sections['Logging']['create_INI'] = 1
     # TODO: if something is changed, write a copy of ini
         
 
