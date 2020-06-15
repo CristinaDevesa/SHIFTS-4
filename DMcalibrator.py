@@ -14,6 +14,7 @@ __status__ = "Development"
 # import modules
 import os
 import sys
+from pathlib import Path
 import configparser
 import argparse
 import logging
@@ -36,10 +37,7 @@ def readInfile(infile):
     Read input file to dataframe and determine if it is Comet or Recom.
     '''
     df = pd.read_csv(infile, skiprows=1, sep="\t", float_precision='high')
-    recom = 0
-    if 'Closest_Deltamass' in df.columns:
-        recom = 1
-    return df, recom
+    return df
 
 def getTheoMZ(df):
     '''    
@@ -58,7 +56,7 @@ def getTheoMZ(df):
         MZ = (total_aas + charge*config._sections['Masses']['M_proton']) / charge
         return MZ
     
-    df['theo_mz'] = df.apply(lambda x: _PSMtoMZ(x['plain_peptide'], x['charge']), axis = 1)
+    df['theo_mz'] = df.apply(lambda x: _PSMtoMZ(x[config._sections['Input']['seqcolumn']], x[config._sections['Input']['zcolumn']]), axis = 1)
     return df
 
 def getErrors(df):
@@ -67,11 +65,11 @@ def getErrors(df):
     '''
     df.insert(df.columns.get_loc('theo_mz')+1, 'abs_error', np.nan)
     df.insert(df.columns.get_loc('abs_error')+1, 'rel_error', np.nan)
-    df['abs_error'] = df['exp_mz'] - df['theo_mz']
+    df['abs_error'] = df[config._sections['Input']['mzcolumn']] - df['theo_mz']
     df['rel_error'] = df['abs_error'] / df['theo_mz'] * 1e6
     return df
 
-def filterPeptides(df, recom, scoremin, ppmmax, scorecolumn, chargecolumn, mzcolumn, seqcolumn):
+def filterPeptides(df, scoremin, ppmmax, scorecolumn, chargecolumn, mzcolumn, seqcolumn):
     '''    
     Filter and keep target peptides that match Xcorrmin and PPMmax conditions.
     This high-quality subpopulation will be used for calibration.
@@ -111,8 +109,8 @@ def rawCorrection(df, sys_error):
     '''
     Correct exp_mz values from infile using the systematic error.
     '''
-    df.insert(df.columns.get_loc('exp_mz')+1, 'exp_mz_cal', np.nan)
-    df['exp_mz_cal'] = df['exp_mz'] - sys_error
+    df.insert(df.columns.get_loc(config._sections['Input']['mzcolumn'])+1, 'exp_mz_cal', np.nan)
+    df['exp_mz_cal'] = df[config._sections['Input']['mzcolumn']] - sys_error
     return df
 
 def getDMcal(df, dmcolumn):
@@ -134,46 +132,34 @@ def main(args):
     '''
     Main function
     '''
-    
-    logging.info("read input file list")
-    with open(args.infile) as f:
-        infile_list = f.readlines()
-    infile_list = [x.strip() for x in infile_list] # remove whitespace
-    
-    #TODO: parallelize?
-    # with concurrent.futures.ProcessPoolExecutor(max_workers=args.n_workers) as executor:
-    
-    log_str = str(len(infile_list)) + " file(s) to calibrate..."
+      
+    log_str = "Calibrating file: " + str(Path(args.infile))
     logging.info(log_str)
-    i = 0
-    for infile in infile_list: 
-        i += 1
-        log_str = "calibrating file " + str(i) + " of " + str(len(infile_list))
-        logging.info(log_str)
-        # Read infile
-        df, recom = readInfile(infile)
-        # Calculate theoretical MZ
-        df = getTheoMZ(df)
-        # Calculate errors
-        df = getErrors(df)
-        # Filter identifications
-        df_filtered = filterPeptides(df,
-                                     recom,
-                                     config._sections['Filtering']['score_min'],
-                                     config._sections['Filtering']['ppm_max'],
-                                     config._sections['Input']['scorecolumn'],
-                                     config._sections['Input']['zcolumn'],
-                                     config._sections['Input']['mzcolumn'],
-                                     config._sections['Input']['seqcolumn'])
-        # Use filtered set to calculate systematic error
-        sys_error, avg_ppm_error = getSysError(df_filtered)
-        # Use systematic error to correct infile
-        df = rawCorrection(df, sys_error)
-        # Calculate DMCal 
-        df = getDMcal(df, config._sections['Input']['dmcolumn'])
-        #Write to txt file
-        outfile = infile[:-4] + '_calibrated.txt'
-        df.to_csv(outfile, index=False, encoding='utf-8')
+    # Read infile
+    df = readInfile(Path(args.infile))
+    # Calculate theoretical MZ
+    df = getTheoMZ(df)
+    # Calculate errors
+    df = getErrors(df)
+    # Filter identifications
+    df_filtered = filterPeptides(df,
+                                 config._sections['Filtering']['score_min'],
+                                 config._sections['Filtering']['ppm_max'],
+                                 config._sections['Input']['scorecolumn'],
+                                 config._sections['Input']['zcolumn'],
+                                 config._sections['Input']['mzcolumn'],
+                                 config._sections['Input']['seqcolumn'])
+    # Use filtered set to calculate systematic error
+    sys_error, avg_ppm_error = getSysError(df_filtered)
+    # Use systematic error to correct infile
+    df = rawCorrection(df, sys_error)
+    # Calculate DMCal 
+    df = getDMcal(df, config._sections['Input']['dmcolumn'])
+    #Write to txt file
+    logging.info("Writing output file...")
+    outfile = args.infile[:-4] + '_calibrated.txt'
+    df.to_csv(outfile, index=False, encoding='utf-8')
+    logging.info("Calibration finished")
 
     
 if __name__ == '__main__':
@@ -191,7 +177,7 @@ if __name__ == '__main__':
         
     defaultconfig = os.path.join(os.path.dirname(__file__), "config/DMcalibrator.ini")
     
-    parser.add_argument('-i', '--infile', required=True, help='List of input files')
+    parser.add_argument('-i', '--infile', required=True, help='Path to input file')
     parser.add_argument('-c', '--config', default=defaultconfig, help='Path to custom config.ini file')
     
     # these will overwrite the config if specified
@@ -230,14 +216,20 @@ if __name__ == '__main__':
         
 
     # logging debug level. By default, info level
+    log_file = outfile = args.infile[:-4] + '_log.txt'
+    log_file_debug = outfile = args.infile[:-4] + '_log_debug.txt'
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s - %(levelname)s - %(message)s',
-                            datefmt='%m/%d/%Y %I:%M:%S %p')
+                            datefmt='%m/%d/%Y %I:%M:%S %p',
+                            handlers=[logging.FileHandler(log_file_debug),
+                                      logging.StreamHandler()])
     else:
         logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s - %(levelname)s - %(message)s',
-                            datefmt='%m/%d/%Y %I:%M:%S %p')
+                            datefmt='%m/%d/%Y %I:%M:%S %p',
+                            handlers=[logging.FileHandler(log_file),
+                                      logging.StreamHandler()])
 
     # start main function
     logging.info('start script: '+"{0}".format(" ".join([x for x in sys.argv])))
