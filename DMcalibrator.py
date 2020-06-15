@@ -44,7 +44,8 @@ def getTheoMZ(df):
     Calculate theoretical MZ using the PSM sequence.
     '''
     AAs = dict(config._sections['Aminoacids'])
-    df.insert(df.columns.get_loc(config._sections['Input']['mzcolumn'])+1, 'theo_mz', np.nan)
+    if 'theo_mz' not in df:
+        df.insert(df.columns.get_loc(config._sections['Input']['mzcolumn'])+1, 'theo_mz', np.nan)
     
     def _PSMtoMZ(sequence, charge):
         total_aas = 2*config._sections['Masses']['M_proton'] + config._sections['Masses']['M_oxygen']
@@ -63,8 +64,10 @@ def getErrors(df):
     '''    
     Calculate absolute (in m/z) and relative (in ppm) errors.
     '''
-    df.insert(df.columns.get_loc('theo_mz')+1, 'abs_error', np.nan)
-    df.insert(df.columns.get_loc('abs_error')+1, 'rel_error', np.nan)
+    if 'abs_error' not in df:
+        df.insert(df.columns.get_loc('theo_mz')+1, 'abs_error', np.nan)
+    if 'rel_error' not in df:
+        df.insert(df.columns.get_loc('abs_error')+1, 'rel_error', np.nan)
     df['abs_error'] = df[config._sections['Input']['mzcolumn']] - df['theo_mz']
     df['rel_error'] = df['abs_error'] / df['theo_mz'] * 1e6
     return df
@@ -109,7 +112,8 @@ def rawCorrection(df, sys_error):
     '''
     Correct exp_mz values from infile using the systematic error.
     '''
-    df.insert(df.columns.get_loc(config._sections['Input']['mzcolumn'])+1, 'exp_mz_cal', np.nan)
+    if 'exp_mz_cal' not in df:
+        df.insert(df.columns.get_loc(config._sections['Input']['mzcolumn'])+1, 'exp_mz_cal', np.nan)
     df['exp_mz_cal'] = df[config._sections['Input']['mzcolumn']] - sys_error
     return df
 
@@ -117,9 +121,10 @@ def getDMcal(df, dmcolumn):
     '''
     Calculate calibrated DM values.
     '''
-    df.insert(df.columns.get_loc(config._sections['Input']['mzcolumn'])+1,
-              'exp_dm_cal',
-              np.nan)
+    if 'exp_dm_cal' not in df:
+        df.insert(df.columns.get_loc(config._sections['Input']['mzcolumn'])+1,
+                  'exp_dm_cal',
+                  np.nan)
     df['exp_dm_cal'] = df[config._sections['Input']['mzcolumn']] - df['theo_mz']
     return df
 
