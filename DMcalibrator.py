@@ -217,7 +217,9 @@ if __name__ == '__main__':
     if args.seqcolumn is not None:
         config._sections['Input']['seqcolumn'] = args.seqcolumn
         config._sections['Logging']['create_INI'] = 1
-    # TODO: if something is changed, write a copy of ini
+    # if something is changed, write a copy of ini
+    with open(os.path.dirname(args.infile) + '/DMcalibrator.ini', 'w') as newconfig:
+        config.write(newconfig)
         
 
     # logging debug level. By default, info level
