@@ -225,7 +225,7 @@ if __name__ == '__main__':
         config.set('Input', 'seqcolumn', args.seqcolumn)
         config.set('Logging', 'create_ini', '1')
     if args.dmcolumn is not None:
-        config.set('Input', 'dmcolumn'], args.dmcolumn)
+        config.set('Input', 'dmcolumn', args.dmcolumn)
         config.set('Logging', 'create_ini', '1')
     # if something is changed, write a copy of ini
     if int(config._sections['Logging']['create_ini']) == '1':
