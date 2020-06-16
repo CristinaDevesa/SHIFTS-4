@@ -198,7 +198,6 @@ if __name__ == '__main__':
     parser.add_argument('-se', '--seqcolumn', default=None, help='Name of the column containing the sequence')
     parser.add_argument('-dm', '--dmcolumn', default=None, help='Name of the column containing the deltamass')
 
-    parser.add_argument('-w', '--n_workers', type=int, default=4, help='Number of threads/n_workers (default: %(default)s)')    
     parser.add_argument('-v', dest='verbose', action='store_true', help="Increase output verbosity")
     args = parser.parse_args()
     
@@ -227,8 +226,9 @@ if __name__ == '__main__':
         config._sections['Input']['dmcolumn'] = args.dmcolumn
         config._sections['Logging']['create_INI'] = 1
     # if something is changed, write a copy of ini
-    with open(os.path.dirname(args.infile) + '/DMcalibrator.ini', 'w') as newconfig:
-        config.write(newconfig)
+    if int(config._sections['Logging']['create_ini']) == 1:
+        with open(os.path.dirname(args.infile) + '/DMcalibrator.ini', 'w') as newconfig:
+            config.write(newconfig)
         
 
     # logging debug level. By default, info level
