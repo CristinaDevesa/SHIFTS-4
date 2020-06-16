@@ -207,28 +207,28 @@ if __name__ == '__main__':
     config = configparser.ConfigParser(inline_comment_prefixes='#')
     config.read(args.config)
     if args.scoremin is not None:
-        config.set('Filtering', 'score_min', args.scoremin)
+        config.set('Filtering', 'score_min', str(args.scoremin))
         config.set('Logging', 'create_ini', '1')
     if args.ppmmax is not None:
-        config.set('Filtering', 'ppm_max', args.ppmmax)
+        config.set('Filtering', 'ppm_max', str(args.ppmmax))
         config.set('Logging', 'create_ini', '1')
     if args.scorecolumn is not None:
-        config.set('Input', 'scorecolumn', args.scorecolumn)
+        config.set('Input', 'scorecolumn', str(args.scorecolumn))
         config.set('Logging', 'create_ini', '1')
     if args.mzcolumn is not None:
-        config.set('Input', 'mzcolumn', args.mzcolumn)
+        config.set('Input', 'mzcolumn', str(args.mzcolumn))
         config.set('Logging', 'create_ini', '1')
     if args.chargecolumn is not None:
-        config.set('Input', 'zcolumn', args.zcolumn)
+        config.set('Input', 'zcolumn', str(args.zcolumn))
         config.set('Logging', 'create_ini', '1')
     if args.seqcolumn is not None:
-        config.set('Input', 'seqcolumn', args.seqcolumn)
+        config.set('Input', 'seqcolumn', str(args.seqcolumn))
         config.set('Logging', 'create_ini', '1')
     if args.dmcolumn is not None:
-        config.set('Input', 'dmcolumn', args.dmcolumn)
+        config.set('Input', 'dmcolumn', str(args.dmcolumn))
         config.set('Logging', 'create_ini', '1')
     # if something is changed, write a copy of ini
-    if int(config._sections['Logging']['create_ini']) == '1':
+    if config.getint('Logging', 'create_ini') == 1:
         with open(os.path.dirname(args.infile) + '/DMcalibrator.ini', 'w') as newconfig:
             config.write(newconfig)
         
