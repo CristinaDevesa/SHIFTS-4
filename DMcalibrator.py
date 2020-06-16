@@ -36,7 +36,8 @@ def readInfile(infile):
     '''    
     Read input file to dataframe and determine if it is Comet or Recom.
     '''
-    df = pd.read_csv(infile, skiprows=1, sep="\t", float_precision='high')
+    #df = pd.read_csv(infile, skiprows=1, sep="\t", float_precision='high')
+    df = pd.read_csv(infile, sep="\t", float_precision='high')
     return df
 
 def getTheoMZ(df):
@@ -94,10 +95,8 @@ def filterPeptides(df, scoremin, ppmmax, scorecolumn, chargecolumn, mzcolumn, se
     #keep abs_error <= ppmmax
     df_filtered = df_filtered[df_filtered['abs_error']
                               <=ppmmax]
-    
     logging.info("Number of PSMs before filtering: " + str(df.shape[0]))
     logging.info("Number of PSMs after filtering: " + str(df_filtered.shape[0]))
-
     return df_filtered
 
 def getSysError(df_filtered):
@@ -193,9 +192,11 @@ if __name__ == '__main__':
     # these will overwrite the config if specified
     parser.add_argument('-s', '--scoremin', default=None, help='Minimum score')
     parser.add_argument('-p', '--ppmmax', default=None, help='Maximum PPM error')
-    parser.add_argument('-sc', '--scorecolumn', default=None, help='Position of the column containing the score')
-    parser.add_argument('-zc', '--chargecolumn', default=None, help='Position of the column containing the charge')
-    parser.add_argument('-mc', '--mzcolumn', default=None, help='Position of the column containing the experimental m/z')
+    parser.add_argument('-sc', '--scorecolumn', default=None, help='Name of the column containing the score')
+    parser.add_argument('-zc', '--chargecolumn', default=None, help='Name of the column containing the charge')
+    parser.add_argument('-mc', '--mzcolumn', default=None, help='Name of the column containing the experimental m/z')
+    parser.add_argument('-se', '--seqcolumn', default=None, help='Name of the column containing the sequence')
+    parser.add_argument('-dm', '--dmcolumn', default=None, help='Name of the column containing the deltamass')
 
     parser.add_argument('-w', '--n_workers', type=int, default=4, help='Number of threads/n_workers (default: %(default)s)')    
     parser.add_argument('-v', dest='verbose', action='store_true', help="Increase output verbosity")
@@ -216,11 +217,14 @@ if __name__ == '__main__':
     if args.mzcolumn is not None:
         config._sections['Input']['mzcolumn'] = args.mzcolumn
         config._sections['Logging']['create_INI'] = 1
-    if args.zcolumn is not None:
+    if args.chargecolumn is not None:
         config._sections['Input']['zcolumn'] = args.zcolumn
         config._sections['Logging']['create_INI'] = 1
     if args.seqcolumn is not None:
         config._sections['Input']['seqcolumn'] = args.seqcolumn
+        config._sections['Logging']['create_INI'] = 1
+    if args.dmcolumn is not None:
+        config._sections['Input']['dmcolumn'] = args.dmcolumn
         config._sections['Logging']['create_INI'] = 1
     # if something is changed, write a copy of ini
     with open(os.path.dirname(args.infile) + '/DMcalibrator.ini', 'w') as newconfig:
