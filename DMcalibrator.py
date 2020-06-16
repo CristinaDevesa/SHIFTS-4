@@ -49,13 +49,13 @@ def getTheoMZ(df):
         df.insert(df.columns.get_loc(config._sections['Input']['mzcolumn'])+1, 'theo_mz', np.nan)
     
     def _PSMtoMZ(sequence, charge):
-        total_aas = 2*config._sections['Masses']['M_proton'] + config._sections['Masses']['M_oxygen']
+        total_aas = 2*float(config._sections['Masses']['m_proton']) + float(config._sections['Masses']['m_oxygen'])
         for aa in sequence:
             if aa.lower() in AAs:
-                total_aas += AAs[aa]
+                total_aas += float(AAs[aa.lower()])
             #else: # aminoacid not in list (ask for user input?)
                 # TODO
-        MZ = (total_aas + charge*config._sections['Masses']['M_proton']) / charge
+        MZ = (total_aas + int(charge)*float(config._sections['Masses']['m_proton'])) / int(charge)
         return MZ
     
     df['theo_mz'] = df.apply(lambda x: _PSMtoMZ(x[config._sections['Input']['seqcolumn']], x[config._sections['Input']['zcolumn']]), axis = 1)
@@ -152,8 +152,8 @@ def main(args):
     df = getErrors(df)
     # Filter identifications
     df_filtered = filterPeptides(df,
-                                 config._sections['Filtering']['score_min'],
-                                 config._sections['Filtering']['ppm_max'],
+                                 float(config._sections['Filtering']['score_min']),
+                                 float(config._sections['Filtering']['ppm_max']),
                                  config._sections['Input']['scorecolumn'],
                                  config._sections['Input']['zcolumn'],
                                  config._sections['Input']['mzcolumn'],
