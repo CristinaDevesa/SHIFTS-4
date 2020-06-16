@@ -34,7 +34,7 @@ pd.options.mode.chained_assignment = None  # default='warn'
 
 def readInfile(infile):
     '''    
-    Read input file to dataframe and determine if it is Comet or Recom.
+    Read input file to dataframe.
     '''
     #df = pd.read_csv(infile, skiprows=1, sep="\t", float_precision='high')
     df = pd.read_csv(infile, sep="\t", float_precision='high')
@@ -45,17 +45,19 @@ def getTheoMZ(df):
     Calculate theoretical MZ using the PSM sequence.
     '''
     AAs = dict(config._sections['Aminoacids'])
+    m_proton = config.getfloat('Masses', 'm_proton')
+    m_oxygen = config.getfloat('Masses', 'm_oxygen')
     if 'theo_mz' not in df:
         df.insert(df.columns.get_loc(config._sections['Input']['mzcolumn'])+1, 'theo_mz', np.nan)
     
     def _PSMtoMZ(sequence, charge):
-        total_aas = 2*float(config._sections['Masses']['m_proton']) + float(config._sections['Masses']['m_oxygen'])
+        total_aas = 2*m_proton + m_oxygen
         for aa in sequence:
             if aa.lower() in AAs:
                 total_aas += float(AAs[aa.lower()])
             #else: # aminoacid not in list (ask for user input?)
                 # TODO
-        MZ = (total_aas + int(charge)*float(config._sections['Masses']['m_proton'])) / int(charge)
+        MZ = (total_aas + int(charge)*m_proton) / int(charge)
         return MZ
     
     df['theo_mz'] = df.apply(lambda x: _PSMtoMZ(x[config._sections['Input']['seqcolumn']], x[config._sections['Input']['zcolumn']]), axis = 1)
@@ -205,28 +207,28 @@ if __name__ == '__main__':
     config = configparser.ConfigParser(inline_comment_prefixes='#')
     config.read(args.config)
     if args.scoremin is not None:
-        config._sections['Filtering']['score_min'] = args.scoremin
-        config._sections['Logging']['create_INI'] = 1
+        config.set('Filtering', 'score_min', args.scoremin)
+        config.set('Logging', 'create_ini', '1')
     if args.ppmmax is not None:
-        config._sections['Filtering']['ppm_max'] = args.ppmmax
-        config._sections['Logging']['create_INI'] = 1
+        config.set('Filtering', 'ppm_max', args.ppmmax)
+        config.set('Logging', 'create_ini', '1')
     if args.scorecolumn is not None:
-        config._sections['Input']['scorecolumn'] = args.scorecolumn
-        config._sections['Logging']['create_INI'] = 1
+        config.set('Input', 'scorecolumn', args.scorecolumn)
+        config.set('Logging', 'create_ini', '1')
     if args.mzcolumn is not None:
-        config._sections['Input']['mzcolumn'] = args.mzcolumn
-        config._sections['Logging']['create_INI'] = 1
+        config.set('Input', 'mzcolumn', args.mzcolumn)
+        config.set('Logging', 'create_ini', '1')
     if args.chargecolumn is not None:
-        config._sections['Input']['zcolumn'] = args.zcolumn
-        config._sections['Logging']['create_INI'] = 1
+        config.set('Input', 'zcolumn', args.zcolumn)
+        config.set('Logging', 'create_ini', '1')
     if args.seqcolumn is not None:
-        config._sections['Input']['seqcolumn'] = args.seqcolumn
-        config._sections['Logging']['create_INI'] = 1
+        config.set('Input', 'seqcolumn', args.seqcolumn)
+        config.set('Logging', 'create_ini', '1')
     if args.dmcolumn is not None:
-        config._sections['Input']['dmcolumn'] = args.dmcolumn
-        config._sections['Logging']['create_INI'] = 1
+        config.set('Input', 'dmcolumn'], args.dmcolumn)
+        config.set('Logging', 'create_ini', '1')
     # if something is changed, write a copy of ini
-    if int(config._sections['Logging']['create_ini']) == 1:
+    if int(config._sections['Logging']['create_ini']) == '1':
         with open(os.path.dirname(args.infile) + '/DMcalibrator.ini', 'w') as newconfig:
             config.write(newconfig)
         
