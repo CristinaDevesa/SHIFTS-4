@@ -169,7 +169,7 @@ def main(args):
     #Write to txt file
     logging.info("Writing output file...")
     outfile = args.infile[:-4] + '_calibrated.txt'
-    df.to_csv(outfile, index=False, encoding='utf-8')
+    df.to_csv(outfile, index=False, sep='\t', encoding='utf-8')
     logging.info("Calibration finished")
 
     
