@@ -21,6 +21,7 @@ import pandas as pd
 import numpy as np
 import concurrent.futures
 from itertools import repeat
+pd.options.mode.chained_assignment = None  # default='warn'
 
 #infile = r"C:\Users\Andrea\Desktop\SHIFTS-4\testing\cXcorr_Len_Rank_Results_TargetData_Calibration.txt"
 
@@ -74,7 +75,7 @@ def generate_histogram(df, bin_width):
     
     return df, bins_df
 
-def linear_regression(bin_subset, smoothed):
+def linear_regression(bin_subset, smoothed, second_derivative):
     '''
     Calculate the linear regression line and return the slope
     (and the intercept, if called with smooth == True).
@@ -84,8 +85,10 @@ def linear_regression(bin_subset, smoothed):
     x_list = bin_subset['midpoint'].tolist()
     if smoothed:
         y_list = bin_subset['smooth_count'].tolist()
-    else:
+    elif not second_derivative:
         y_list = bin_subset['count'].tolist()
+    else:
+        y_list = bin_subset['Slope1'].tolist()
     sum1, sum2 = 0, 0
     for i in range(len(x_list)):
         sum1 += (x_list[i] - np.mean(x_list)) * (y_list[i] - np.mean(y_list))
@@ -106,7 +109,7 @@ def smoothing(bins_df, points):
     for i in range(points, len(bins_df)-points): #TODO: handle leftovers at start/end
         #working_bin = bins_df.loc[i]
         bin_subset = bins_df[i-points:i+points+1]
-        working_slope, intercept = linear_regression(bin_subset, False)
+        working_slope, intercept = linear_regression(bin_subset, False, False)
         bins_df.loc[i, 'smooth_count'] = intercept + (working_slope*bins_df.loc[i, 'midpoint'])
     return bins_df
 
@@ -122,19 +125,22 @@ def first_derivative(bins_df, points):
     '''
     bins_df = smoothing(bins_df, points)
     bins_df['Slope1'] = None
-    for i in range(points, len(bins_df)-points): #TODO: handle leftovers at start/end
+    for i in range(points*2, len(bins_df)-points*2): #TODO: handle leftovers at start/end
         #working_bin = bins_df.loc[i]
         bin_subset = bins_df[i-points:i+points+1]
-        bins_df.loc[i, 'Slope1'] = linear_regression(bin_subset, True)
-    
-    #bins_df['first derivative'] = _linear_regression()
+        bins_df.loc[i, 'Slope1'] = linear_regression(bin_subset, True, False)
     return bins_df
 
-def second_derivative(bins_df):
+def second_derivative(bins_df, points):
     '''
-    1
+    Calculate the second derivative for each bin.
     '''
-    return
+    bins_df['Slope2'] = None
+    for i in range(points*3, len(bins_df)-points*3): #TODO: handle leftovers at start/end
+        bin_subset = bins_df[i-points:i+points+1]
+        bins_df.loc[i, 'Slope2'] = linear_regression(bin_subset, False, True)
+                
+    return bins_df
 
 def filter_peaks():
     '''
@@ -161,14 +167,12 @@ def main(args):
         df = executor.map(concatInfiles, infiles, repeat(args.fwhm_filename))
     df = pd.concat(df)
     df.reset_index(drop=True, inplace=True)
-    
-    # first pass for smoothing
-    # second pass for filtering:
-        # make bins
+
+    # make bins
     df, bins_df = generate_histogram(df, args.bins)
-        # calculate derivatives
+    # calculate derivatives
     #grouped_bins_df = bins_df.groupby(['bin'])
-    bins_df = first_derivative(bins_df, args.points)
+    bins_df = first_derivative(bins_df, args.points)  #does 1st smoothing pass and 2nd normal pass
         # check which bins pass
     # write apex list in txt
 
