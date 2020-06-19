@@ -95,7 +95,7 @@ def linear_regression(bin_subset, smoothed, second_derivative):
         sum2 += (x_list[i] - np.mean(x_list)) ** 2
     working_slope = sum1 / sum2
     intercept = np.mean(y_list) - working_slope*np.mean(x_list)
-    if smoothed:
+    if smoothed or second_derivative:
         return working_slope
     else:
         return working_slope, intercept
@@ -111,6 +111,7 @@ def smoothing(bins_df, points):
         bin_subset = bins_df[i-points:i+points+1]
         working_slope, intercept = linear_regression(bin_subset, False, False)
         bins_df.loc[i, 'smooth_count'] = intercept + (working_slope*bins_df.loc[i, 'midpoint'])
+    bins_df[["smooth_count"]] = bins_df[["smooth_count"]].apply(pd.to_numeric)
     return bins_df
 
 def first_derivative(bins_df, points):
@@ -129,6 +130,7 @@ def first_derivative(bins_df, points):
         #working_bin = bins_df.loc[i]
         bin_subset = bins_df[i-points:i+points+1]
         bins_df.loc[i, 'Slope1'] = linear_regression(bin_subset, True, False)
+    bins_df[["Slope1"]] = bins_df[["Slope1"]].apply(pd.to_numeric)
     return bins_df
 
 def second_derivative(bins_df, points):
@@ -139,7 +141,7 @@ def second_derivative(bins_df, points):
     for i in range(points*3, len(bins_df)-points*3): #TODO: handle leftovers at start/end
         bin_subset = bins_df[i-points:i+points+1]
         bins_df.loc[i, 'Slope2'] = linear_regression(bin_subset, False, True)
-                
+    bins_df[["Slope2"]] = bins_df[["Slope2"]].apply(pd.to_numeric)           
     return bins_df
 
 def filter_peaks():
@@ -173,6 +175,7 @@ def main(args):
     # calculate derivatives
     #grouped_bins_df = bins_df.groupby(['bin'])
     bins_df = first_derivative(bins_df, args.points)  #does 1st smoothing pass and 2nd normal pass
+    bins_df = second_derivative(bins_df, args.points)
         # check which bins pass
     # write apex list in txt
 
