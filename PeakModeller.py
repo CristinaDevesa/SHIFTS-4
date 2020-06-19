@@ -82,9 +82,10 @@ def linear_regression(working_bin, bin_subset, smooth):
     # linear regression function for the rest
     x_list = bin_subset['midpoint'].tolist()
     y_list = bin_subset['count'].tolist()
+    sum1, sum2 = 0, 0
     for i in range(len(x_list)):
-        sum1 = (x_list[i] - np.mean(x_list)) * (y_list[i] - np.mean(y_list))
-        sum2 = (x_list[i] - np.mean(x_list)) ** 2
+        sum1 += (x_list[i] - np.mean(x_list)) * (y_list[i] - np.mean(y_list))
+        sum2 += (x_list[i] - np.mean(x_list)) ** 2
     working_slope = sum1 / sum2
     intercept = np.mean(y_list) - working_slope*np.mean(x_list)
     if smooth == 0:
