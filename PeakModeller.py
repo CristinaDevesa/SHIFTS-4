@@ -74,21 +74,25 @@ def generate_histogram(df, bin_width):
     
     return df, bins_df
 
-def linear_regression(working_bin, bin_subset, smooth):
+def linear_regression(bin_subset, smoothed):
     '''
-    Calculate the linear regression line and return the slope.
+    Calculate the linear regression line and return the slope
+    (and the intercept, if called with smooth == True).
     '''
     # TODO: define special cases at beginning and end and use a
     # linear regression function for the rest
     x_list = bin_subset['midpoint'].tolist()
-    y_list = bin_subset['count'].tolist()
+    if smoothed:
+        y_list = bin_subset['smooth_count'].tolist()
+    else:
+        y_list = bin_subset['count'].tolist()
     sum1, sum2 = 0, 0
     for i in range(len(x_list)):
         sum1 += (x_list[i] - np.mean(x_list)) * (y_list[i] - np.mean(y_list))
         sum2 += (x_list[i] - np.mean(x_list)) ** 2
     working_slope = sum1 / sum2
     intercept = np.mean(y_list) - working_slope*np.mean(x_list)
-    if smooth == 0:
+    if smoothed:
         return working_slope
     else:
         return working_slope, intercept
@@ -98,39 +102,33 @@ def smoothing(bins_df, points):
     Calculate the slope (first derivative) for each bin. Calculate new smoothed
     value for the midpoint using the linear regression line.
     '''
-    
-    bins_df['smooth_midpoint'] = None
-    
+    bins_df['smooth_count'] = None
     for i in range(points, len(bins_df)-points): #TODO: handle leftovers at start/end
-        working_bin = bins_df.loc[i]
+        #working_bin = bins_df.loc[i]
         bin_subset = bins_df[i-points:i+points+1]
-        working_slope, intercept = linear_regression(working_bin, bin_subset, 1)
-        bins_df.loc[i, 'smooth_midpoint'] = intercept + (working_slope*bins_df.loc[i, 'midpoint'])
-    
+        working_slope, intercept = linear_regression(bin_subset, False)
+        bins_df.loc[i, 'smooth_count'] = intercept + (working_slope*bins_df.loc[i, 'midpoint'])
     return bins_df
 
 def first_derivative(bins_df, points):
     '''
     Calculate the slope (first derivative) for each bin.
+    Returns the slope of the linear regression line through data points in
+    known_y's and known_x's. The slope is the vertical distance divided by
+    the horizontal distance between any two points on the line, which is the
+    rate of change along the regression line.
+    Known_y's  Bins. An array or cell range of numeric dependent data points.
+    Known_x's  Count. The set of independent data points.
     '''
-    # Returns the slope of the linear regression line through data points in
-    # known_y's and known_x's. The slope is the vertical distance divided by
-    # the horizontal distance between any two points on the line, which is the
-    # rate of change along the regression line.
-    # Known_y's  Bins. An array or cell range of numeric dependent data points.
-    # Known_x's  Count. The set of independent data points.
-    
+    bins_df = smoothing(bins_df, points)
     bins_df['Slope1'] = None
-    
     for i in range(points, len(bins_df)-points): #TODO: handle leftovers at start/end
-        working_bin = bins_df.loc[i]
+        #working_bin = bins_df.loc[i]
         bin_subset = bins_df[i-points:i+points+1]
-        bins_df.loc[i, 'Slope1'] = linear_regression(working_bin, bin_subset, 0)
+        bins_df.loc[i, 'Slope1'] = linear_regression(bin_subset, True)
     
     #bins_df['first derivative'] = _linear_regression()
-
-    
-    return
+    return bins_df
 
 def second_derivative(bins_df):
     '''
