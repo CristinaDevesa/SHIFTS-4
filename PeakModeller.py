@@ -153,17 +153,18 @@ def main(args):
     Main function
     '''
     
-    logging.info("read input file list")
+    logging.info("Read input file list...")
     with open(args.infile) as f:
         infiles = f.readlines()
     infiles = [x.strip() for x in infiles] # remove whitespace
     
-    logging.info("concat input files") # TODO: do we do this for each file or all together
+    logging.info("Concat input files...")
     with concurrent.futures.ProcessPoolExecutor(max_workers=args.n_workers) as executor:            
         df = executor.map(concatInfiles, infiles, repeat(args.fwhm_filename))
     df = pd.concat(df)
     df.reset_index(drop=True, inplace=True)
 
+    logging.info("Generating DMHistogram...")
     # make bins
     df, bins_df = generate_histogram(df, args.bins)
     # calculate derivatives
@@ -171,12 +172,14 @@ def main(args):
     bins_df = first_derivative(bins_df, args.points//2)  #does 1st smoothing pass and 2nd normal pass
     bins_df = second_derivative(bins_df, args.points//2)
         # check which bins pass
+    logging.info("Writing output files...")
     # write DMhistogram
     outfile = args.infile[:-4] + '_DMHistogram.txt'
     df.to_csv(outfile, index=False, sep='\t', encoding='utf-8')
     # write DMtable (input for PeakSelector)
     outfile = args.infile[:-4] + '_DMTable.txt'
     df.to_csv(outfile, index=False, sep='\t', encoding='utf-8')
+    logging.info("Peak Modelling finished")
 
 if __name__ == '__main__':
 
@@ -213,28 +216,26 @@ if __name__ == '__main__':
     if args.points is not None:
         config.set('PeakModeller', 'points', str(args.points))
         config.set('Logging', 'create_ini', '1')
-    if args.slope is not None:
-        config.set('PeakSelector', 'slope', str(args.slope))
-        config.set('Logging', 'create_ini', '1')
-    if args.frequency is not None:
-        config.set('PeakSelector', 'frequency', str(args.frequency))
-        config.set('Logging', 'create_ini', '1')
     # if something is changed, write a copy of ini
     if config.getint('Logging', 'create_ini') == 1:
         with open(os.path.dirname(args.infile) + '/DMcalibrator.ini', 'w') as newconfig:
             config.write(newconfig)
-            
-    # TODO: add mode to log!
-
+        
     # logging debug level. By default, info level
+    log_file = outfile = args.infile[:-4] + '_log.txt'
+    log_file_debug = outfile = args.infile[:-4] + '_log_debug.txt'
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s - %(levelname)s - %(message)s',
-                            datefmt='%m/%d/%Y %I:%M:%S %p')
+                            datefmt='%m/%d/%Y %I:%M:%S %p',
+                            handlers=[logging.FileHandler(log_file_debug),
+                                      logging.StreamHandler()])
     else:
         logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s - %(levelname)s - %(message)s',
-                            datefmt='%m/%d/%Y %I:%M:%S %p')
+                            datefmt='%m/%d/%Y %I:%M:%S %p',
+                            handlers=[logging.FileHandler(log_file),
+                                      logging.StreamHandler()])
 
     # start main function
     logging.info('start script: '+"{0}".format(" ".join([x for x in sys.argv])))
