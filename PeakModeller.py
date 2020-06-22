@@ -144,12 +144,6 @@ def second_derivative(bins_df, points):
     bins_df[["Slope2"]] = bins_df[["Slope2"]].apply(pd.to_numeric)           
     return bins_df
 
-def filter_peaks():
-    '''
-    Find peaks that are above the thresholds for slope and PSMs.
-    '''
-    return
-
 #################
 # Main function #
 #################
@@ -174,10 +168,15 @@ def main(args):
     df, bins_df = generate_histogram(df, args.bins)
     # calculate derivatives
     #grouped_bins_df = bins_df.groupby(['bin'])
-    bins_df = first_derivative(bins_df, args.points)  #does 1st smoothing pass and 2nd normal pass
-    bins_df = second_derivative(bins_df, args.points)
+    bins_df = first_derivative(bins_df, args.points//2)  #does 1st smoothing pass and 2nd normal pass
+    bins_df = second_derivative(bins_df, args.points//2)
         # check which bins pass
-    # write apex list in txt
+    # write DMhistogram
+    outfile = args.infile[:-4] + '_DMHistogram.txt'
+    df.to_csv(outfile, index=False, sep='\t', encoding='utf-8')
+    # write DMtable (input for PeakSelector)
+    outfile = args.infile[:-4] + '_DMTable.txt'
+    df.to_csv(outfile, index=False, sep='\t', encoding='utf-8')
 
 if __name__ == '__main__':
 
@@ -198,9 +197,7 @@ if __name__ == '__main__':
     
     parser.add_argument('-b', '--bins', help='Width of the bins')
     parser.add_argument('-p', '--points', help='Number of points (bins) to use for slope calculation')
-    parser.add_argument('-s', '--slope', help='Threshold for slope of DM peak')
-    parser.add_argument('-f', '--frequency', help='Threshold for number of PSMs')
-    parser.add_argument('-m', '--mode', required=True, help='0=info, 1=filter')
+
     #parser.add_argument('-m', '--mode', required=True, help='0=filter by slope, 1=filter by frequency, 2=filter by both')
     # ALWAYS FILTER BY BOTH
 
