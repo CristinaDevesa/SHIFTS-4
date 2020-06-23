@@ -17,10 +17,11 @@ import sys
 import argparse
 import configparser
 import logging
+import re
 import pandas as pd
 import numpy as np
 
-def filter_peaks(df_hist, slope, frequency):
+def filterPeaks(df_hist, slope, frequency):
     '''
     Find peaks that are above the thresholds for slope and PSMs.
     '''
@@ -29,14 +30,25 @@ def filter_peaks(df_hist, slope, frequency):
     df_hist = df_hist[df_hist['count'] >= frequency]
     return df_hist
 
-def peak_apex(bins_df):
+def parseInterval(bins_df):
+    '''
+    Read 'bin' column as an interval.
+    '''
+    for i in range(0, len(bins_df)):
+        to_interval = bins_df.loc[i, 'bin']
+        left = float(re.findall(r'-?\d+\.\d+', to_interval)[0]) 
+        right = float(re.findall(r'-?\d+\.\d+', to_interval)[1])
+        bins_df.loc[i, 'bin'] = pd.Interval(left, right, closed='right')
+    return bins_df
+
+def peakApex(bins_df):
     '''
     Calculate apex for each peak.
     '''
     apex_list = []
     for i in range(1, len(bins_df)):
         if bins_df.loc[i, 'slope2'] is not None:
-            i1 = bins_df.loc[i-1, 'bin']
+            i1 = bins_df.loc[i-1, 'bin'] # TODO parse interval
             i2 = bins_df.loc[i, 'bin']
             # Check intervals are consecutive, and there is a change in sign of slope2
             if i1.right == i2.left and bins_df.loc[i, 'slope2'] < 0 and bins_df.loc[i-1, 'slope2'] >= 0:
@@ -52,13 +64,17 @@ def main(args):
     '''
     
     logging.info("Reading input file...")
-    df_hist = pd.read_csv(args.histogram, sep="\t", float_precision='high')
+    df_hist = pd.read_csv(args.infile, sep="\t", float_precision='high')
     logging.info("Filtering...")
-    df_hist = filter_peaks(df_hist, #slope, #frequency)
-    apex_list = peak_apex(df_hist)
+    df_hist = filterPeaks(df_hist,
+                           float(config._sections['PeakSelector']['slope']),
+                           int(config._sections['PeakSelector']['frequency']))
+    df_hist.reset_index(drop=True, inplace=True)
+    df_hist = parseInterval(df_hist)
+    apex_list = peakApex(df_hist)
     # write apex list in txt
     logging.info("Writing apex list...")
-    outfile = args.infile[:-8] + '_ApexList.txt'
+    outfile = args.infile[:-15] + 'ApexList.txt'
     with open(outfile, 'w') as f:
         for apex in apex_list:
             f.write("%s\n" % apex)
@@ -103,8 +119,8 @@ if __name__ == '__main__':
             config.write(newconfig)
 
     # logging debug level. By default, info level
-    log_file = outfile = args.infile[:-4] + '_log.txt'
-    log_file_debug = outfile = args.infile[:-4] + '_log_debug.txt'
+    log_file = outfile = args.infile[:-15] + 'ApexList_log.txt'
+    log_file_debug = outfile = args.infile[:-15] + 'ApexList_log_debug.txt'
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s - %(levelname)s - %(message)s',
