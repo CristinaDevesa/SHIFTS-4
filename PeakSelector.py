@@ -55,7 +55,7 @@ def main(args):
     df_hist = pd.read_csv(args.histogram, sep="\t", float_precision='high')
     logging.info("Filtering...")
     df_hist = filter_peaks(df_hist, #slope, #frequency)
-    apex_list = peak_apex(df_hist) #TODO: could there be problems bc of filtering?
+    apex_list = peak_apex(df_hist)
     # write apex list in txt
     logging.info("Writing apex list...")
     outfile = args.infile[:-8] + '_ApexList.txt'
@@ -80,11 +80,10 @@ if __name__ == '__main__':
     defaultconfig = os.path.join(os.path.dirname(__file__), "config/PeakModeller.ini")
     
     parser.add_argument('-i', '--infile', required=True, help='DMHistogram to be filtered')
+    parser.add_argument('-c', '--config', default=defaultconfig, help='Path to custom config.ini file')
     
     parser.add_argument('-s', '--slope', help='Threshold for slope of DM peak')
     parser.add_argument('-f', '--frequency', help='Threshold for number of PSMs')
-    #parser.add_argument('-m', '--mode', required=True, help='0=filter by slope, 1=filter by frequency, 2=filter by both')
-    # ALWAYS FILTER BY BOTH
 
     parser.add_argument('-v', dest='verbose', action='store_true', help="Increase output verbosity")
     args = parser.parse_args()

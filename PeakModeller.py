@@ -197,12 +197,10 @@ if __name__ == '__main__':
     defaultconfig = os.path.join(os.path.dirname(__file__), "config/PeakModeller.ini")
     
     parser.add_argument('-i', '--infile', required=True, help='Input file with the peak file(s) to be filtered')
-    
+    parser.add_argument('-c', '--config', default=defaultconfig, help='Path to custom config.ini file')
+
     parser.add_argument('-b', '--bins', help='Width of the bins')
     parser.add_argument('-p', '--points', help='Number of points (bins) to use for slope calculation')
-
-    #parser.add_argument('-m', '--mode', required=True, help='0=filter by slope, 1=filter by frequency, 2=filter by both')
-    # ALWAYS FILTER BY BOTH
 
     parser.add_argument('-v', dest='verbose', action='store_true', help="Increase output verbosity")
     args = parser.parse_args()
