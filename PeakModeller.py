@@ -125,23 +125,23 @@ def first_derivative(bins_df, points):
     Known_x's  Count. The set of independent data points.
     '''
     bins_df = smoothing(bins_df, points)
-    bins_df['Slope1'] = None
+    bins_df['slope1'] = None
     for i in range(points*2, len(bins_df)-points*2): #TODO: handle leftovers at start/end
         #working_bin = bins_df.loc[i]
         bin_subset = bins_df[i-points:i+points+1]
-        bins_df.loc[i, 'Slope1'] = linear_regression(bin_subset, True, False)
-    bins_df[["Slope1"]] = bins_df[["Slope1"]].apply(pd.to_numeric)
+        bins_df.loc[i, 'slope1'] = linear_regression(bin_subset, True, False)
+    bins_df[['slope1']] = bins_df[['slope1']].apply(pd.to_numeric)
     return bins_df
 
 def second_derivative(bins_df, points):
     '''
     Calculate the second derivative for each bin.
     '''
-    bins_df['Slope2'] = None
+    bins_df['slope2'] = None
     for i in range(points*3, len(bins_df)-points*3): #TODO: handle leftovers at start/end
         bin_subset = bins_df[i-points:i+points+1]
-        bins_df.loc[i, 'Slope2'] = linear_regression(bin_subset, False, True)
-    bins_df[["Slope2"]] = bins_df[["Slope2"]].apply(pd.to_numeric)           
+        bins_df.loc[i, 'slope2'] = linear_regression(bin_subset, False, True)
+    bins_df[['slope2']] = bins_df[['slope2']].apply(pd.to_numeric)           
     return bins_df
 
 #################
@@ -153,7 +153,7 @@ def main(args):
     Main function
     '''
     
-    logging.info("Read input file list...")
+    logging.info("Reading input file list...")
     with open(args.infile) as f:
         infiles = f.readlines()
     infiles = [x.strip() for x in infiles] # remove whitespace
