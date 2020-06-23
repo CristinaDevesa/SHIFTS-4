@@ -28,7 +28,7 @@ pd.options.mode.chained_assignment = None  # default='warn'
 ###################
 # Local functions #
 ###################
-def concatInfiles(infile, fwhm_fname):
+def concatInfiles(infile):
     '''    
     Concat input files...
     '''
@@ -88,7 +88,7 @@ def linear_regression(bin_subset, smoothed, second_derivative):
     elif not second_derivative:
         y_list = bin_subset['count'].tolist()
     else:
-        y_list = bin_subset['Slope1'].tolist()
+        y_list = bin_subset['slope1'].tolist()
     sum1, sum2 = 0, 0
     for i in range(len(x_list)):
         sum1 += (x_list[i] - np.mean(x_list)) * (y_list[i] - np.mean(y_list))
@@ -160,22 +160,22 @@ def main(args):
     
     logging.info("Concat input files...")
     with concurrent.futures.ProcessPoolExecutor(max_workers=args.n_workers) as executor:            
-        df = executor.map(concatInfiles, infiles, repeat(args.fwhm_filename))
+        df = executor.map(concatInfiles, infiles)
     df = pd.concat(df)
     df.reset_index(drop=True, inplace=True)
 
     logging.info("Generating DMHistogram...")
     # make bins
-    df, bins_df = generate_histogram(df, args.bins)
+    df, bins_df = generate_histogram(df, float(config._sections['PeakModeller']['bins']))
     # calculate derivatives
     #grouped_bins_df = bins_df.groupby(['bin'])
-    bins_df = first_derivative(bins_df, args.points//2)  #does 1st smoothing pass and 2nd normal pass
-    bins_df = second_derivative(bins_df, args.points//2)
+    bins_df = first_derivative(bins_df, int(config._sections['PeakModeller']['points'])//2)  #does 1st smoothing pass and 2nd normal pass
+    bins_df = second_derivative(bins_df, int(config._sections['PeakModeller']['points'])//2)
         # check which bins pass
     logging.info("Writing output files...")
     # write DMhistogram
     outfile = args.infile[:-4] + '_DMHistogram.txt'
-    df.to_csv(outfile, index=False, sep='\t', encoding='utf-8')
+    bins_df.to_csv(outfile, index=False, sep='\t', encoding='utf-8')
     # write DMtable (input for PeakSelector)
     outfile = args.infile[:-4] + '_DMTable.txt'
     df.to_csv(outfile, index=False, sep='\t', encoding='utf-8')
@@ -202,6 +202,7 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--bins', help='Width of the bins')
     parser.add_argument('-p', '--points', help='Number of points (bins) to use for slope calculation')
 
+    parser.add_argument('-w',  '--n_workers', type=int, default=4, help='Number of threads/n_workers (default: %(default)s)')    
     parser.add_argument('-v', dest='verbose', action='store_true', help="Increase output verbosity")
     args = parser.parse_args()
     
