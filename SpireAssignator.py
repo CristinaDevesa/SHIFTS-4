@@ -23,13 +23,12 @@ def readInfile(infile):
     df = pd.read_csv(infile, sep="\t", float_precision='high')
     return df
 
-def pickSpires(df, percentage, cometcol, recomcol, outcol):
+def pickSpires(df, percentage, cometcol, recomcol, outcol, label):
     '''    
     label rows where the Recom score improves over the Comet score more
     than the threshold percentage.
     '''
-    df[outcol] = np.nan
-    
+    df[outcol] = df.apply(lambda x: label if ((x[recomcol]-x[cometcol])/x[cometcol]>=percentage) else np.nan)
     return df
 
 def main(args):
@@ -41,15 +40,32 @@ def main(args):
     cometcol = config._sections['SpireAssignator']['cometcolumn']
     recomcol = config._sections['SpireAssignator']['recomcolumn']
     outcol = config._sections['SpireAssignator']['spirecolumn']
+    label = config._sections['SpireAssignator']['spirelabel']
+    
     # Read infile
     logging.info("Reading input file...")
     df = readInfile(Path(args.infile))
+    
     # Create Spire column
+    logging.info("Spire assignation...")
+    logging.info("Percentage threshold: " + str(percentage))
     df = pickSpires(df,
                     percentage,
                     cometcol,
                     recomcol,
-                    outcol)
+                    outcol,
+                    label)
+    logging.info("Total PSMs:" + str(len(df.index)))
+    logging.info("Spires identified:" + str(df.groupby(label).count()
+                                            + "("
+                                            + str(df.groupby(label).count()-len(df.index)/df.groupby(label).count())
+                                            + "%)"))
+    
+    # Write output file
+    logging.info("Writing output file...")
+    outfile = args.infile[:-4] + '_spires.txt'
+    df.to_csv(outfile, index=False, sep='\t', encoding='utf-8')
+    logging.info("Spire assignation finished.")
 
 if __name__ == '__main__':
 
@@ -93,8 +109,8 @@ if __name__ == '__main__':
             config.write(newconfig)
 
     # logging debug level. By default, info level
-    log_file = outfile = args.infile[:-4] + '_spire_log.txt'
-    log_file_debug = outfile = args.infile[:-4] + '_spire_log_debug.txt'
+    log_file = outfile = args.infile[:-4] + '_spires_log.txt'
+    log_file_debug = outfile = args.infile[:-4] + '_spires_log_debug.txt'
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s - %(levelname)s - %(message)s',
