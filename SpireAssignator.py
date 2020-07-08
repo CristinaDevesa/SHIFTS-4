@@ -3,17 +3,23 @@
 # -*- coding: utf-8 -*-
 
 # Module metadata variables
-__author__ = "Jose Rodriguez"
-__credits__ = ["Jose Rodriguez", "Andrea Laguillo Gómez", "Jesus Vazquez"]
+__author__ = "Andrea Laguillo Gómez"
+__credits__ = ["Andrea Laguillo Gómez", "Jose Rodriguez", "Jesus Vazquez"]
 __license__ = "Creative Commons Attribution-NonCommercial-NoDerivs 4.0 Unported License https://creativecommons.org/licenses/by-nc-nd/4.0/"
 __version__ = "0.0.1"
-__maintainer__ = "Jose Rodriguez"
+__maintainer__ = "Andrea Laguillo Gómez"
 __email__ = "jmrodriguezc@cnic.es;andrea.laguillo@cnic.es"
 __status__ = "Development"
 
 # import modules
+import argparse
+import configparser
+import logging
 import numpy as np
+import os
 import pandas as pd
+from pathlib import Path
+import sys
 
 def readInfile(infile):
     '''    
