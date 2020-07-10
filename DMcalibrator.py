@@ -36,8 +36,19 @@ def readInfile(infile):
     '''    
     Read input file to dataframe.
     '''
-    #df = pd.read_csv(infile, skiprows=1, sep="\t", float_precision='high')
-    df = pd.read_csv(infile, sep="\t", float_precision='high')
+    df = pd.read_csv(infile, skiprows=1, sep="\t", float_precision='high', low_memory=False) # TODO: option for header/no header
+    #df = pd.read_csv(infile, sep="\t", float_precision='high')
+    # Cleanup
+    df = df[df[config._sections['Input']['scorecolumn']].notna()]
+    df[config._sections['Input']['scorecolumn']] = pd.to_numeric(df[config._sections['Input']['scorecolumn']])
+    df = df[df[config._sections['Input']['mzcolumn']].notna()]
+    df[config._sections['Input']['mzcolumn']] = pd.to_numeric(df[config._sections['Input']['mzcolumn']])
+    df = df[df[config._sections['Input']['zcolumn']].notna()]
+    df[config._sections['Input']['zcolumn']] = pd.to_numeric(df[config._sections['Input']['zcolumn']])
+    df = df[df[config._sections['Input']['seqcolumn']].notna()]
+    df = df[df[config._sections['Input']['dmcolumn']].notna()]
+    df[config._sections['Input']['dmcolumn']] = pd.to_numeric(df[config._sections['Input']['dmcolumn']])
+    df = df[df[config._sections['Input']['proteincolumn']].notna()]
     return df
 
 def getTheoMZ(df):
