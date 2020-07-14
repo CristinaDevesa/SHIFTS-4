@@ -21,12 +21,17 @@ import re
 import pandas as pd
 import numpy as np
 
+def readHistogram(infile):
+    df_hist = pd.read_csv(args.infile, sep="\t", float_precision='high')
+    df_hist = df_hist.dropna()
+    return df_hist
+
 def filterPeaks(df_hist, slope, frequency):
     '''
     Find peaks that are above the thresholds for slope and PSMs.
     '''
     # TODO: allow specify slope and count columns in INI?
-    df_hist = df_hist[df_hist['slope1'] >= slope]
+    df_hist = df_hist[abs(df_hist['slope1']) >= slope]
     df_hist = df_hist[df_hist['count'] >= frequency]
     return df_hist
 
@@ -64,7 +69,8 @@ def main(args):
     '''
     
     logging.info("Reading input file...")
-    df_hist = pd.read_csv(args.infile, sep="\t", float_precision='high')
+    df_hist = readHistogram(args.infile)
+    df_hist.reset_index(drop=True, inplace=True)
     logging.info("Filtering...")
     df_hist = filterPeaks(df_hist,
                            float(config._sections['PeakSelector']['slope']),
@@ -73,6 +79,8 @@ def main(args):
     df_hist = parseInterval(df_hist)
     apex_list = peakApex(df_hist)
     # write apex list in txt
+    apex_info = str(len(apex_list)) + " peaks"
+    logging.info(apex_info)
     logging.info("Writing apex list...")
     outfile = args.infile[:-15] + 'ApexList.txt'
     with open(outfile, 'w') as f:
@@ -86,10 +94,10 @@ if __name__ == '__main__':
 
     # parse arguments
     parser = argparse.ArgumentParser(
-        description='Peak Modeller',
+        description='Peak Selector',
         epilog='''
         Example:
-            python PeakModeller.py
+            python PeakSelector.py
 
         ''')
         
@@ -115,7 +123,7 @@ if __name__ == '__main__':
         config.set('Logging', 'create_ini', '1')
     # if something is changed, write a copy of ini
     if config.getint('Logging', 'create_ini') == 1:
-        with open(os.path.dirname(args.infile) + '/DMcalibrator.ini', 'w') as newconfig:
+        with open(os.path.dirname(args.infile) + '/PeakModeller.ini', 'w') as newconfig:
             config.write(newconfig)
 
     # logging debug level. By default, info level
