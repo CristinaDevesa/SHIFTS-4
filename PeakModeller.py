@@ -24,6 +24,8 @@ pd.options.mode.chained_assignment = None  # default='warn'
 
 #infile = r"C:\Users\Andrea\Desktop\SHIFTS-4\testing\cXcorr_Len_Rank_Results_TargetData_Calibration.txt"
 
+# TODO if empty space in one column, ignore whole row (all modules)
+
 ###################
 # Local functions #
 ###################
@@ -33,12 +35,15 @@ def concatInfiles(infile):
     '''
   
     # read input file
-    # use high precision with the floats
     df = pd.read_csv(infile, sep="\t", float_precision='high')
+    # add folder name into column
+    foldername = os.path.dirname(infile)
+    df['Experiment'] = foldername
+    # add filename column
+    df['Filename'] = os.path.basename(infile)
     # assign type to categorical columns
-    df['filename'] = df['filename'].astype('category')
-    df['Label'] = df['Label'].astype('category')
-    df['IsotpicJump'] = df['IsotpicJump'].astype('category')
+    df['Experiment'] = df['Experiment'].astype('category')
+    df['Filename'] = df['Filename'].astype('category')
     return df
 
 def generate_histogram(df, bin_width):
@@ -53,15 +58,15 @@ def generate_histogram(df, bin_width):
         return len(s) - s.index('.') - 1
     
     # sort by deltamass
-    df.sort_values(by=['Cal_Delta_MH'], inplace=True)
+    df.sort_values(by=['cal_dm_mh'], inplace=True)
     df.reset_index(drop=True, inplace=True)
     
     # make bins
-    bins = list(np.arange(int(round(df['Cal_Delta_MH'][0])),
-                          int(round(df['Cal_Delta_MH'].iloc[-1]))+bin_width,
+    bins = list(np.arange(int(round(df['cal_dm_mh'][0])),
+                          int(round(df['cal_dm_mh'].iloc[-1]))+bin_width,
                           bin_width))
     bins = [round(x, _decimal_places(bin_width)) for x in bins]
-    df['bin'] = pd.cut(df['Cal_Delta_MH'], bins=bins)
+    df['bin'] = pd.cut(df['cal_dm_mh'], bins=bins)
     
     # make histogram table
     bins_df = df['bin'].value_counts().to_frame().rename(columns = {'bin':'count'})
@@ -79,7 +84,7 @@ def linear_regression(bin_subset, smoothed, second_derivative):
     Calculate the linear regression line and return the slope
     (and the intercept, if called with smooth == True).
     '''
-    # TODO: define special cases at beginning and end and use a
+    # ignore special cases at beginning and end and use a
     # linear regression function for the rest
     x_list = bin_subset['midpoint'].tolist()
     if smoothed:
@@ -105,7 +110,7 @@ def smoothing(bins_df, spoints):
     value for the midpoint using the linear regression line.
     '''
     bins_df['smooth_count'] = None
-    for i in range(spoints, len(bins_df)-spoints): #TODO: handle leftovers at start/end
+    for i in range(spoints, len(bins_df)-spoints):
         #working_bin = bins_df.loc[i]
         bin_subset = bins_df[i-spoints:i+spoints+1]
         working_slope, intercept = linear_regression(bin_subset, False, False)
@@ -129,7 +134,7 @@ def first_derivative(bins_df, points, spoints):
     else: #no smoothing
         j = 1
     bins_df['slope1'] = None
-    for i in range(points*j, len(bins_df)-points*j): #TODO: handle leftovers at start/end
+    for i in range(points*j, len(bins_df)-points*j):
         #working_bin = bins_df.loc[i]
         bin_subset = bins_df[i-points:i+points+1]
         if spoints > 0:
@@ -148,7 +153,7 @@ def second_derivative(bins_df, points, spoints):
     else: #not smoothed
         j = 2
     bins_df['slope2'] = None
-    for i in range(points*j, len(bins_df)-points*j): #TODO: handle leftovers at start/end
+    for i in range(points*j, len(bins_df)-points*j):
         bin_subset = bins_df[i-points:i+points+1]
         bins_df.loc[i, 'slope2'] = linear_regression(bin_subset, False, True)
     bins_df[['slope2']] = bins_df[['slope2']].apply(pd.to_numeric)           
@@ -235,7 +240,7 @@ if __name__ == '__main__':
         config.set('Logging', 'create_ini', '1')
     # if something is changed, write a copy of ini
     if config.getint('Logging', 'create_ini') == 1:
-        with open(os.path.dirname(args.infile) + '/DMcalibrator.ini', 'w') as newconfig:
+        with open(os.path.dirname(args.infile) + '/PeakModeller.ini', 'w') as newconfig:
             config.write(newconfig)
         
     # logging debug level. By default, info level
