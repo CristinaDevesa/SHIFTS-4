@@ -239,7 +239,7 @@ if __name__ == '__main__':
     parser.add_argument('-zc', '--chargecolumn', default=None, help='Name of the column containing the charge')
     parser.add_argument('-mc', '--mzcolumn', default=None, help='Name of the column containing the experimental m/z')
     parser.add_argument('-se', '--seqcolumn', default=None, help='Name of the column containing the sequence')
-    parser.add_argument('-dm', '--dmcolumn', default=None, help='Name of the column containing the deltamass')
+    #parser.add_argument('-dm', '--dmcolumn', default=None, help='Name of the column containing the deltamass')
 
     parser.add_argument('-v', dest='verbose', action='store_true', help="Increase output verbosity")
     args = parser.parse_args()
@@ -267,9 +267,9 @@ if __name__ == '__main__':
     if args.seqcolumn is not None:
         config.set('Input', 'seqcolumn', str(args.seqcolumn))
         config.set('Logging', 'create_ini', '1')
-    if args.dmcolumn is not None:
-        config.set('Input', 'dmcolumn', str(args.dmcolumn))
-        config.set('Logging', 'create_ini', '1')
+    #if args.dmcolumn is not None:
+        #config.set('Input', 'dmcolumn', str(args.dmcolumn))
+        #config.set('Logging', 'create_ini', '1')
     # if something is changed, write a copy of ini
     if config.getint('Logging', 'create_ini') == 1:
         with open(os.path.dirname(args.infile) + '/DMcalibrator.ini', 'w') as newconfig:
