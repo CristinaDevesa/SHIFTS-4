@@ -28,7 +28,7 @@ import sys
 # Local functions #
 ###################
 
-def get_spire_FDR(df, xcorr_type): #TODO: we don't have xcorr_type, we have recom_data, take out column names
+def get_spire_FDR(df, score_column, xcorr_type): #TODO: we don't have xcorr_type, we have recom_data, take out column names
     #This will be for the group of scans in a peak that are contained within 
     #one recom-assignated theoretical deltamass. Then, when we do peak_FDR, we
     #include these as well as the rest of the values in the peak.
@@ -67,7 +67,7 @@ def get_spire_FDR(df, xcorr_type): #TODO: we don't have xcorr_type, we have reco
     df.drop(['Rank'], axis = 1, inplace = True)
     return df
 
-def get_peak_FDR(df, recom_data):
+def get_peak_FDR(df, score_column, recom_data, closestpeak_column):
     '''
     Calculate peak FDR for each peak in one bin (1 Da)
     '''
@@ -77,37 +77,39 @@ def get_peak_FDR(df, recom_data):
     df['Peak_Rank_D'] = -1
     # identify peaks
     peaks = df[df['Peak'] == 'PEAK'] # filter by Peak
-    grouped_peaks = peaks.groupby(['ClosestPeak']) # group by ClosestPeak
+    grouped_peaks = peaks.groupby([closestpeak_column]) # group by ClosestPeak
     # df.get_group("group")
     #grouped_peaks.groups # group info
     for group in grouped_peaks:
         group_index = group[1].index.values
         df.loc[group_index] # repeat steps of local_FDR
         # sort bin
-        if recom_data == 0: # by Comet Xcorr
-            df.loc[group_index].sort_values(by=['Xcor', 'Label'], inplace=True)
-        else: # by Comet cXcorr
-            df.loc[group_index].sort_values(by=['CorXcor', 'Label'], inplace=True) # TODO: Fix SHIFTS cXcorr
+        # if recom_data == 0: # by Comet Xcorr
+        #     df.loc[group_index].sort_values(by=['Xcor', 'Label'], inplace=True)
+        # else: # by Comet cXcorr
+        #     df.loc[group_index].sort_values(by=['CorXcor', 'Label'], inplace=True) # TODO: Fix SHIFTS cXcorr
+        df.loc[group_index].sort_values(by=[score_column, 'Label'], inplace=True)
         # count targets and decoys
         df.loc[group_index]['Rank'] = df.loc[group_index].groupby('Label').cumcount()+1 # This column can be deleted later
         df.loc[group_index]['Peak_Rank_T'] = np.where(df.loc[group_index]['Label']=='Target', df.loc[group_index]['Rank'], 0)
         df.loc[group_index]['Peak_Rank_T'] = df.loc[group_index]['Peak_Rank_T'].replace(to_replace=0, method='ffill')
         df.loc[group_index]['Peak_Rank_D'] = np.where(df.loc[group_index]['Label'] == 'Decoy', df.loc[group_index]['Rank'], 0)
         df.loc[group_index]['Peak_Rank_D'] =  df.loc[group_index]['Peak_Rank_D'].replace(to_replace=0, method='ffill')
-        # calculate local FDR
+        # calculate peak FDR
         df.loc[group_index]['PeakFDR'] = df.loc[group_index]['Peak_Rank_D']/df.loc[group_index]['Peak_Rank_T']
     df.drop(['Rank'], axis = 1, inplace = True)
     return df
 
-def get_local_FDR(df, recom_data):
+def get_local_FDR(df, score_column, recom_data):
     '''
     Calculate local FDR for one bin (1 Da)
     '''
     # sort bin
-    if recom_data == 0: # by Comet Xcorr
-        df.sort_values(by=['Xcor', 'Label'], inplace=True)
-    else: # by Comet cXcorr
-        df.sort_values(by=['CorXcor', 'Label'], inplace=True) # TODO: Fix SHIFTS cXcorr
+    #if recom_data == 0: # by Comet Xcorr
+        #df.sort_values(by=['Xcor', 'Label'], inplace=True)
+    #else: # by Comet cXcorr
+        #df.sort_values(by=['CorXcor', 'Label'], inplace=True) # TODO: Fix SHIFTS cXcorr
+    df.sort_values(by=[score_column, 'Label'], inplace=True)
         
     # count targets and decoys
     df['Rank'] = df.groupby('Label').cumcount()+1 # This column can be deleted later
@@ -121,15 +123,16 @@ def get_local_FDR(df, recom_data):
     df['LocalFDR'] = df['Local_Rank_D']/df['Local_Rank_T']
     return df
 
-def get_global_FDR(df, recom_data):
+def get_global_FDR(df, score_column, recom_data):
     '''
     Calculate global FDR
     '''
     # sort by score
-    if recom_data == 0: # by Comet Xcorr
-        df.sort_values(by=['Xcor', 'Label'], inplace=True)
-    else: # by Comet cXcorr
-        df.sort_values(by=['CorXcor', 'Label'], inplace=True) # TODO: Fix SHIFTS cXcorr
+    # if recom_data == 0: # by Comet Xcorr
+    #     df.sort_values(by=['Xcor', 'Label'], inplace=True)
+    # else: # by Comet cXcorr
+    #     df.sort_values(by=['CorXcor', 'Label'], inplace=True) # TODO: Fix SHIFTS cXcorr
+    df.sort_values(by=[score_column, 'Label'], inplace=True)
         
     # count targets and decoys
     df['Rank'] = df.groupby('Label').cumcount()+1 # This column can be deleted later
@@ -139,25 +142,30 @@ def get_global_FDR(df, recom_data):
     df['Global_Rank_D'] =  df['Global_Rank_D'].replace(to_replace=0, method='ffill')
     df.drop(['Rank'], axis = 1, inplace = True)
     
-    # calculate local FDR
-    df['LocalFDR'] = df['Local_Rank_D']/df['Local_Rank_T']
+    # calculate global FDR
+    df['GlobalFDR'] = df['Global_Rank_D']/df['Global_Rank_T']
     return df
 
 def filtering(df, fdr_filter, target_filter):
+    if target_filter: # =! 0
+        df[df['Label'] == 'Target']
+    if fdr_filter: # =! 0
+        df[df['GlobalFDR'] >= fdr_filter]
     return df
 
-def bin_operations(df, recom_data, peak_label):
+def bin_operations(df, score_column, recom_data, peak_label, closestpeak_column):
     '''
     Main function that handles the operations by BIN
     '''
     # calculate local FDR
-    df = get_local_FDR(df, recom_data)
+    df = get_local_FDR(df, score_column, recom_data)
     
     # calculate peak FDR
-    df = get_peak_FDR(df, recom_data)
+    df = get_peak_FDR(df, score_column, recom_data, closestpeak_column)
     
     # calculate spire FDR
-    df = get_spire_FDR(df, recom_data)
+    if recom_data: #recom_data =! 0
+    df = get_spire_FDR(df, score_column, recom_data)
     
     return df
 
@@ -171,23 +179,25 @@ def main(args):
     '''
     # Main variables
     score_column = config._sections['PeakFDRer']['score_column']
-    fdr_filter = config._sections['PeakFDRer']['fdr_filter']
-    target_filter = config._sections['PeakFDRer']['target_filter']
     recom_data = config._sections['PeakFDRer']['recom_data']
     peak_label = config._sections['PeakAssignator']['peak_label']
     col_CalDeltaMH = config._sections['PeakAssignator']['caldeltamh_column']
+    closestpeak_column = config._sections['PeakAssignator']['closestpeak_column']
+    fdr_filter = config._sections['PeakFDRer']['fdr_filter']
+    target_filter = config._sections['PeakFDRer']['target_filter']
     
     #Read input file
     df = pd.read_feather(args.infile)
     
     logging.info("parallel the operations by BIN")
     with concurrent.futures.ProcessPoolExecutor(max_workers=args.n_workers) as executor:        
-        df = executor.map(bin_operations, list(df.groupby("bin")), repeat(recom_data), 
-                                                                   repeat(peak_label) # TODO: missing args
-                                                                   ) 
+        df = executor.map(bin_operations, list(df.groupby("bin")), repeat(score_column),
+                                                                   repeat(recom_data), 
+                                                                   repeat(peak_label),
+                                                                   repeat(closestpeak_column)) 
     df = pd.concat(df)
     logging.info("Calculate gobal FDR")
-    df = get_global_FDR(df, args.xcorr)
+    df = get_global_FDR(df, score_column, recom_data)
     logging.info("Sort by DeltaMax cal")
     df.sort_values(by=[col_CalDeltaMH], inplace=True)
     
