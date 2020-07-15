@@ -1,3 +1,0 @@
-MAD:	0.0005326948820455641
-full width if peak at half maximum
-FWHM:	0.0012544005861262915
