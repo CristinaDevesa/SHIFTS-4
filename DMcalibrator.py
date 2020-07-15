@@ -163,7 +163,7 @@ def labelTargetDecoy(df, proteincolumn, decoyprefix):
     Label targets and decoys according to protein ID column.
     '''
     df.insert(df.columns.get_loc(proteincolumn)+1, 'Label', np.nan)
-    df['Label'] = df.apply(lambda x: 'DECOY' if (x[proteincolumn][0:5]==decoyprefix) else 'TARGET', axis = 1)
+    df['Label'] = df.apply(lambda x: 'Decoy' if (x[proteincolumn][0:5]==decoyprefix) else 'Target', axis = 1)
     return df
 
 #################
