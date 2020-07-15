@@ -58,6 +58,7 @@ def getTheoMZ(df, mzcolumn, zcolumn, seqcolumn):
     AAs = dict(mass_config._sections['Aminoacids'])
     MODs = dict(mass_config._sections['Fixed Modifications'])
     m_proton = mass_config.getfloat('Masses', 'm_proton')
+    m_hydrogen = mass_config.getfloat('Masses', 'm_hydrogen')
     m_oxygen = mass_config.getfloat('Masses', 'm_oxygen')
     if 'theo_mz' not in df:
         df.insert(df.columns.get_loc(mzcolumn)+1, 'theo_mz', np.nan)
@@ -65,7 +66,7 @@ def getTheoMZ(df, mzcolumn, zcolumn, seqcolumn):
         df.insert(df.columns.get_loc('theo_mz'), 'theo_mh', np.nan)
     
     def _PSMtoMZ(sequence, charge):
-        total_aas = 2*m_proton + m_oxygen
+        total_aas = 2*m_hydrogen + m_oxygen
         total_aas += float(MODs['nt']) + float(MODs['ct'])
         for aa in sequence:
             if aa.lower() in AAs:
@@ -81,16 +82,30 @@ def getTheoMZ(df, mzcolumn, zcolumn, seqcolumn):
     df['theo_mh'] = df.apply(lambda x: x['theo_mz'] * x[zcolumn], axis = 1)
     return df
 
-def getErrors(df, mzcolumn):
+def getErrors(df, mzcolumn, calibrated):
     '''    
     Calculate absolute (in m/z) and relative (in ppm) errors.
     '''
-    if 'abs_error' not in df:
-        df.insert(df.columns.get_loc('theo_mz')+1, 'abs_error', np.nan)
-    if 'rel_error' not in df:
-        df.insert(df.columns.get_loc('abs_error')+1, 'rel_error', np.nan)
-    df['abs_error'] = df[mzcolumn] - df['theo_mz']
-    df['rel_error'] = df['abs_error'] / df['theo_mz'] * 1e6
+    if calibrated:
+        abs_error = 'cal_abs_error'
+        rel_error = 'cal_rel_error'
+        i = 2
+    else:
+        abs_error = 'abs_error'
+        rel_error = 'rel_error'
+        i = 1
+        
+    if abs_error not in df:
+        df.insert(df.columns.get_loc('theo_mz')+i, abs_error, np.nan)
+    if rel_error not in df:
+        df.insert(df.columns.get_loc(abs_error)+1, rel_error, np.nan)
+        
+    if calibrated:
+        df[abs_error] = df['exp_mz_cal'] - df['theo_mz']
+        df[rel_error] = df[abs_error] / df['theo_mz'] * 1e6  
+    else:
+        df[abs_error] = df[mzcolumn] - df['theo_mz']
+        #df[rel_error] = df[abs_error] / df['theo_mz'] * 1e6
     return df
 
 def filterPeptides(df, scoremin, ppmmax, scorecolumn, chargecolumn, mzcolumn,
@@ -120,17 +135,25 @@ def filterPeptides(df, scoremin, ppmmax, scorecolumn, chargecolumn, mzcolumn,
     logging.info("Number of PSMs after filtering: " + str(df_filtered.shape[0]))
     return df_filtered
 
-def getSysError(df_filtered):
+def getSysError(df_filtered, calibrated):
     '''
     Calculate systematic error and average PPM error.
     '''
-    sys_error = df_filtered['abs_error'].median()
+    if calibrated:
+        abs_error = 'cal_abs_error'
+    else:
+        abs_error = 'abs_error'
+        
+    sys_error = df_filtered[abs_error].median()
     
     phi = math.sqrt(2) * math.erf(-1)
-    mad = df_filtered['abs_error'].mad()
+    mad = df_filtered[abs_error].mad()
     avg_ppm_error = mad / phi
-    logging.info("Systematic error: " + str(sys_error))
-    logging.info("Average ppm error: " + str(avg_ppm_error))
+    if calibrated:
+        logging.info("Systematic error after calibration: " + str(sys_error))
+        logging.info("Average ppm error: " + str(avg_ppm_error))
+    else:
+        logging.info("Systematic error: " + str(sys_error))
     return sys_error, avg_ppm_error
 
 def rawCorrection(df, sys_error):
@@ -199,7 +222,7 @@ def main(args):
     # Calculate theoretical MZ
     df = getTheoMZ(df, mzcolumn, zcolumn, seqcolumn)
     # Calculate errors
-    df = getErrors(df, mzcolumn)
+    df = getErrors(df, mzcolumn, 0)
     # Filter identifications
     df_filtered = filterPeptides(df,
                                  score_min,
@@ -211,9 +234,12 @@ def main(args):
                                  proteincolumn,
                                  decoyprefix)
     # Use filtered set to calculate systematic error
-    sys_error, avg_ppm_error = getSysError(df_filtered)
+    sys_error, avg_ppm_error = getSysError(df_filtered, 0)
     # Use systematic error to correct infile
     df = rawCorrection(df, sys_error)
+    # TODO: Recalculate systematic error using calibrated masses
+    df = getErrors(df, mzcolumn, 1)
+    cal_sys_error = getSysError(df, 1)
     # Calculate DMCal 
     df = getDMcal(df, mzcolumn, zcolumn)
     #Write to txt file
