@@ -97,10 +97,10 @@ def getErrors(df, mzcolumn, calibrated):
         
     if abs_error not in df:
         df.insert(df.columns.get_loc('theo_mz')+i, abs_error, np.nan)
-    if rel_error not in df:
-        df.insert(df.columns.get_loc(abs_error)+1, rel_error, np.nan)
         
     if calibrated:
+        if rel_error not in df:
+            df.insert(df.columns.get_loc(abs_error)+1, rel_error, np.nan)
         df[abs_error] = df['exp_mz_cal'] - df['theo_mz']
         df[rel_error] = df[abs_error] / df['theo_mz'] * 1e6  
     else:
