@@ -23,7 +23,6 @@ import pandas as pd
 import numpy as np
 pd.options.mode.chained_assignment = None  # default='warn'
 
-#infile = r"C:\Users\Andrea\Desktop\SHIFTS-4\testing\recom.txt"
 # os.chdir(r"C:\Users\Andrea\Desktop\SHIFTS-4")
 
 ###################
@@ -102,25 +101,28 @@ def getErrors(df, mzcolumn, calibrated):
         if rel_error not in df:
             df.insert(df.columns.get_loc(abs_error)+1, rel_error, np.nan)
         df[abs_error] = df['exp_mz_cal'] - df['theo_mz']
-        df[rel_error] = df[abs_error] / df['theo_mz'] * 1e6  
+        df[rel_error] = df[abs_error] / df['theo_mz'] * 1e6 #TODO: should be mh!?
     else:
+       # if 'exp_mh' not in df:
+            #df.insert(df.columns.get_loc(mzcolumn)+1, rel_error, np.nan)
+        #df['exp_mh'] = df[mzcolumn] * df[config._sections['Input']['zcolumn']] + df[config._sections['Input']['zcolumn']] * mass_config.getfloat('Masses', 'm_proton')
         df[abs_error] = df[mzcolumn] - df['theo_mz']
         #df[rel_error] = df[abs_error] / df['theo_mz'] * 1e6
     return df
 
 def filterPeptides(df, scoremin, ppmmax, scorecolumn, chargecolumn, mzcolumn,
-                   seqcolumn, proteincolumn, decoyprefix):
+                   seqcolumn, proteincolumn, abscolumn, decoyprefix):
     '''    
     Filter and keep target peptides that match Xcorrmin and PPMmax conditions.
     This high-quality subpopulation will be used for calibration.
     '''
     
-    def _correctXcorr(charge, xcorr, length):
-        if charge < 3:
-            cxcorr = math.log10(xcorr) / math.log10(2*length)
-        else:
-            cxcorr = math.log10(xcorr/1.22) / math.log10(2*length)
-        return cxcorr
+    # def _correctXcorr(charge, xcorr, length):
+    #     if charge < 3:
+    #         cxcorr = math.log10(xcorr) / math.log10(2*length)
+    #     else:
+    #         cxcorr = math.log10(xcorr/1.22) / math.log10(2*length)
+    #     return cxcorr
     
     #keep targets
     df_filtered = df[~df[proteincolumn]
@@ -129,8 +131,10 @@ def filterPeptides(df, scoremin, ppmmax, scorecolumn, chargecolumn, mzcolumn,
     df_filtered = df_filtered[df_filtered[scorecolumn]
                               >=scoremin]
     #keep abs_error <= ppmmax
-    df_filtered = df_filtered[df_filtered['abs_error']
+    df_filtered = df_filtered[df_filtered[abscolumn]
                               <=ppmmax]
+    df_filtered = df_filtered[df_filtered[abscolumn]
+                              >=-ppmmax]
     logging.info("Number of PSMs before filtering: " + str(df.shape[0]))
     logging.info("Number of PSMs after filtering: " + str(df_filtered.shape[0]))
     return df_filtered
@@ -150,10 +154,10 @@ def getSysError(df_filtered, calibrated):
     mad = df_filtered[abs_error].mad()
     avg_ppm_error = mad / phi
     if calibrated:
-        logging.info("Systematic error after calibration: " + str(sys_error))
-        logging.info("Average ppm error: " + str(avg_ppm_error))
+        logging.info("Systematic error after calibration: " + str(round(sys_error, 6)))
+        logging.info("Average ppm error: " + str(round(avg_ppm_error,6)))
     else:
-        logging.info("Systematic error: " + str(sys_error))
+        logging.info("Systematic error: " + str(round(sys_error, 6)))
     return sys_error, avg_ppm_error
 
 def rawCorrection(df, sys_error):
@@ -162,7 +166,16 @@ def rawCorrection(df, sys_error):
     '''
     if 'exp_mz_cal' not in df:
         df.insert(df.columns.get_loc(config._sections['Input']['mzcolumn'])+1, 'exp_mz_cal', np.nan)
-    df['exp_mz_cal'] = df[config._sections['Input']['mzcolumn']] - sys_error
+    #if 'exp_mh_cal' not in df:
+        #df.insert(df.columns.get_loc('exp_mz_cal')+1, 'exp_mh_cal', np.nan)
+    
+    def _correct(exp_mz, abs_error, sys_error):
+        exp_mz_cal = exp_mz - sys_error
+        return exp_mz_cal
+    
+    #df['exp_mz_cal'] = df[config._sections['Input']['mzcolumn']] - sys_error
+    df['exp_mz_cal'] = df.apply(lambda x: _correct(x[config._sections['Input']['mzcolumn']], x['abs_error'], sys_error), axis = 1)
+    #df['exp_mh_cal'] = df['exp_mh_cal'] *  df[config._sections['Input']['zcolumn']]
     return df
 
 def getDMcal(df, mzcolumn, zcolumn):
@@ -207,6 +220,8 @@ def main(args):
     #dmcolumn = config._sections['Input']['dmcolumn']
     proteincolumn = config._sections['Input']['proteincolumn']
     decoyprefix = config._sections['Input']['decoyprefix']
+    abscolumn = 'abs_error'
+    calabscolumn = 'cal_abs_error'
     
     log_str = "Calibrating file: " + str(Path(args.infile))
     logging.info(log_str)
@@ -232,14 +247,25 @@ def main(args):
                                  mzcolumn,
                                  seqcolumn,
                                  proteincolumn,
+                                 abscolumn,
                                  decoyprefix)
     # Use filtered set to calculate systematic error
-    sys_error, avg_ppm_error = getSysError(df_filtered, 0)
+    sys_error = getSysError(df_filtered, 0)[0]
     # Use systematic error to correct infile
     df = rawCorrection(df, sys_error)
-    # TODO: Recalculate systematic error using calibrated masses
+    # Recalculate systematic error using calibrated masses
     df = getErrors(df, mzcolumn, 1)
-    cal_sys_error = getSysError(df, 1)
+    df_filtered = filterPeptides(df,
+                                 score_min,
+                                 ppm_max,
+                                 scorecolumn,
+                                 zcolumn,
+                                 mzcolumn,
+                                 seqcolumn,
+                                 proteincolumn,
+                                 abscolumn,
+                                 decoyprefix)
+    cal_sys_error, avg_ppm_error = getSysError(df_filtered, 1)
     # Calculate DMCal 
     df = getDMcal(df, mzcolumn, zcolumn)
     #Write to txt file
