@@ -20,6 +20,7 @@ import argparse
 import logging
 import math
 import pandas as pd
+from scipy.special import erfinv
 import numpy as np
 pd.options.mode.chained_assignment = None  # default='warn'
 
@@ -101,7 +102,7 @@ def getErrors(df, mzcolumn, calibrated):
         if rel_error not in df:
             df.insert(df.columns.get_loc(abs_error)+1, rel_error, np.nan)
         df[abs_error] = df['exp_mz_cal'] - df['theo_mz']
-        df[rel_error] = df[abs_error] / df['theo_mz'] * 1e6 #TODO: should be mh!?
+        df[rel_error] = (df[abs_error] / df['theo_mz']) * 1e6 #TODO: should be mh!?
     else:
        # if 'exp_mh' not in df:
             #df.insert(df.columns.get_loc(mzcolumn)+1, rel_error, np.nan)
@@ -131,10 +132,12 @@ def filterPeptides(df, scoremin, ppmmax, scorecolumn, chargecolumn, mzcolumn,
     df_filtered = df_filtered[df_filtered[scorecolumn]
                               >=scoremin]
     #keep abs_error <= ppmmax
-    df_filtered = df_filtered[df_filtered[abscolumn]
+    df_filtered['abs_error_ppm'] = df_filtered[abscolumn]/df_filtered[mzcolumn] * 1e6
+    df_filtered = df_filtered[df_filtered['abs_error_ppm']
                               <=ppmmax]
-    df_filtered = df_filtered[df_filtered[abscolumn]
+    df_filtered = df_filtered[df_filtered['abs_error_ppm']
                               >=-ppmmax]
+    df_filtered = df_filtered.drop('abs_error_ppm', axis = 1)
     logging.info("Number of PSMs before filtering: " + str(df.shape[0]))
     logging.info("Number of PSMs after filtering: " + str(df_filtered.shape[0]))
     return df_filtered
@@ -150,15 +153,16 @@ def getSysError(df_filtered, calibrated):
         
     sys_error = df_filtered[abs_error].median()
     
-    phi = math.sqrt(2) * math.erf(-1)
-    mad = df_filtered[abs_error].mad()
-    avg_ppm_error = mad / phi
     if calibrated:
+        phi = math.sqrt(2) * erfinv(0.5)
+        mad = df_filtered['cal_rel_error'].mad()
+        avg_ppm_error = (mad / phi) 
         logging.info("Systematic error after calibration: " + str(round(sys_error, 6)))
-        logging.info("Average ppm error: " + str(round(avg_ppm_error,6)))
+        logging.info("StdDevMAD_ppm: " + str(round(avg_ppm_error,6)))
+        return sys_error, avg_ppm_error
     else:
         logging.info("Systematic error: " + str(round(sys_error, 6)))
-    return sys_error, avg_ppm_error
+        return sys_error
 
 def rawCorrection(df, sys_error):
     '''
@@ -250,7 +254,7 @@ def main(args):
                                  abscolumn,
                                  decoyprefix)
     # Use filtered set to calculate systematic error
-    sys_error = getSysError(df_filtered, 0)[0]
+    sys_error = getSysError(df_filtered, 0)
     # Use systematic error to correct infile
     df = rawCorrection(df, sys_error)
     # Recalculate systematic error using calibrated masses
