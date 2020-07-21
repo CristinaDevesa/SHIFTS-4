@@ -103,7 +103,7 @@ def getErrors(df, mzcolumn, calibrated):
             df.insert(df.columns.get_loc(abs_error)+1, rel_error, np.nan)
         df[abs_error] = df['exp_mz_cal'] - df['theo_mz']
         #df[rel_error] = (df[abs_error] / df['theo_mz']) * 1e6
-        df[rel_error] = df[abs_error]/df[mzcolumn] * 1e6
+        df[rel_error] = df[abs_error] / df[mzcolumn] * 1e6
     else:
        # if 'exp_mh' not in df:
             #df.insert(df.columns.get_loc(mzcolumn)+1, rel_error, np.nan)
@@ -183,17 +183,17 @@ def rawCorrection(df, sys_error):
     #df['exp_mh_cal'] = df['exp_mh_cal'] *  df[config._sections['Input']['zcolumn']]
     return df
 
-def getDMcal(df, mzcolumn, zcolumn):
+def getDMcal(df, calmzcolumn, zcolumn):
     '''
     Calculate calibrated DM values.
     '''
     if 'cal_dm_mz' not in df:
-        df.insert(df.columns.get_loc(mzcolumn)+1,
+        df.insert(df.columns.get_loc(calmzcolumn)+1,
                   'cal_dm_mz',
                   np.nan)
-    df['cal_dm_mz'] = df[mzcolumn] - df['theo_mz']
+    df['cal_dm_mz'] = df[calmzcolumn] - df['theo_mz']
     if 'cal_dm_mh' not in df:
-        df.insert(df.columns.get_loc(mzcolumn)+1,
+        df.insert(df.columns.get_loc(calmzcolumn)+1,
                   'cal_dm_mh',
                   np.nan)
     df['cal_dm_mh'] = df['cal_dm_mz'] * df[zcolumn]
@@ -259,7 +259,7 @@ def main(args):
     # Use systematic error to correct infile
     df = rawCorrection(df, sys_error)
     # Recalculate systematic error using calibrated masses
-    df = getErrors(df, mzcolumn, 1)
+    df = getErrors(df, 'exp_mz_cal', 1)
     df_filtered = filterPeptides(df,
                                  score_min,
                                  ppm_max,
