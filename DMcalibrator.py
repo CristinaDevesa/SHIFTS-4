@@ -183,10 +183,22 @@ def rawCorrection(df, sys_error):
     #df['exp_mh_cal'] = df['exp_mh_cal'] *  df[config._sections['Input']['zcolumn']]
     return df
 
-def getDMcal(df, calmzcolumn, zcolumn):
+def getDMcal(df, mzcolumn, calmzcolumn, zcolumn):
     '''
     Calculate calibrated DM values.
     '''
+    # Before calibration
+    if 'dm_mz' not in df:
+        df.insert(df.columns.get_loc(mzcolumn)+1,
+                  'dm_mz',
+                  np.nan)
+    df['dm_mz'] = df[mzcolumn] - df['theo_mz']
+    if 'dm_mh' not in df:
+        df.insert(df.columns.get_loc(mzcolumn)+1,
+                  'dm_mh',
+                  np.nan)
+    df['dm_mh'] = df['dm_mz'] * df[zcolumn]
+    # After calibration
     if 'cal_dm_mz' not in df:
         df.insert(df.columns.get_loc(calmzcolumn)+1,
                   'cal_dm_mz',
@@ -227,6 +239,7 @@ def main(args):
     decoyprefix = config._sections['Input']['decoyprefix']
     abscolumn = 'abs_error'
     calabscolumn = 'cal_abs_error'
+    calmzcolumn = 'exp_mz_cal'
     
     log_str = "Calibrating file: " + str(Path(args.infile))
     logging.info(log_str)
@@ -274,7 +287,7 @@ def main(args):
                                  decoyprefix)
     cal_sys_error, avg_ppm_error = getSysError(df_filtered, 1)
     # Calculate DMCal 
-    df = getDMcal(df, mzcolumn, zcolumn)
+    df = getDMcal(df, mzcolumn, calmzcolumn, zcolumn)
     #Write to txt file
     logging.info("Writing output file...")
     outfile = args.infile[:-4] + '_calibrated.txt'
