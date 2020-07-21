@@ -244,6 +244,8 @@ def main(args):
     # Calculate errors
     df = getErrors(df, mzcolumn, 0)
     # Filter identifications
+    logging.info("Filtering by score_min = " + str(score_min))
+    logging.info("Filtering by ppm_max = " + str(ppm_max))
     df_filtered = filterPeptides(df,
                                  score_min,
                                  ppm_max,
