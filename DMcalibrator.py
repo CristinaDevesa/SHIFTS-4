@@ -87,12 +87,12 @@ def getErrors(df, mzcolumn, calibrated):
     Calculate absolute (in m/z) and relative (in ppm) errors.
     '''
     if calibrated:
-        abs_error = 'cal_abs_error'
-        rel_error = 'cal_rel_error'
+        abs_error = 'cal_dm_mh' #cal_abs_error
+        rel_error = 'cal_ppm'
         i = 2
     else:
         abs_error = 'abs_error'
-        rel_error = 'rel_error'
+        rel_error = 'ppm'
         i = 1
         
     if abs_error not in df:
@@ -101,7 +101,7 @@ def getErrors(df, mzcolumn, calibrated):
     if calibrated:
         if rel_error not in df:
             df.insert(df.columns.get_loc(abs_error)+1, rel_error, np.nan)
-        df[abs_error] = df['exp_mz_cal'] - df['theo_mz']
+        df[abs_error] = df['cal_exp_mz'] - df['theo_mz']
         #df[rel_error] = (df[abs_error] / df['theo_mz']) * 1e6
         df[rel_error] = df[abs_error] / df[mzcolumn] * 1e6
     else:
@@ -148,7 +148,7 @@ def getSysError(df_filtered, calibrated):
     Calculate systematic error and average PPM error.
     '''
     if calibrated:
-        abs_error = 'cal_abs_error'
+        abs_error = 'cal_dm_mh' #cal_abs_error
     else:
         abs_error = 'abs_error'
         
@@ -165,22 +165,23 @@ def getSysError(df_filtered, calibrated):
         logging.info("Systematic error: " + str(round(sys_error, 6)))
         return sys_error
 
-def rawCorrection(df, sys_error):
+def rawCorrection(df, mzcolumn, sys_error):
     '''
     Correct exp_mz values from infile using the systematic error.
     '''
-    if 'exp_mz_cal' not in df:
-        df.insert(df.columns.get_loc(config._sections['Input']['mzcolumn'])+1, 'exp_mz_cal', np.nan)
+    if 'cal_exp_mz' not in df:
+        df.insert(df.columns.get_loc(mzcolumn)+1, 'cal_exp_mz', np.nan)
+        df.insert(df.columns.get_loc('cal_exp_mz')+1, 'cal_exp_mh', np.nan)
     #if 'exp_mh_cal' not in df:
-        #df.insert(df.columns.get_loc('exp_mz_cal')+1, 'exp_mh_cal', np.nan)
+        #df.insert(df.columns.get_loc('cal_exp_mz')+1, 'exp_mh_cal', np.nan)
     
     def _correct(exp_mz, abs_error, sys_error):
-        exp_mz_cal = exp_mz - sys_error
-        return exp_mz_cal
+        cal_exp_mz = exp_mz - sys_error
+        return cal_exp_mz
     
-    #df['exp_mz_cal'] = df[config._sections['Input']['mzcolumn']] - sys_error
-    df['exp_mz_cal'] = df.apply(lambda x: _correct(x[config._sections['Input']['mzcolumn']], x['abs_error'], sys_error), axis = 1)
-    #df['exp_mh_cal'] = df['exp_mh_cal'] *  df[config._sections['Input']['zcolumn']]
+    #df['cal_exp_mz'] = df[config._sections['Input']['mzcolumn']] - sys_error
+    df['cal_exp_mz'] = df.apply(lambda x: _correct(x[mzcolumn], x['abs_error'], sys_error), axis = 1)
+    df['cal_exp_mh'] = df.apply(lambda x: x['cal_exp_mz'] * x[config._sections['Input']['zcolumn']], axis = 1)
     return df
 
 def getDMcal(df, mzcolumn, calmzcolumn, zcolumn):
@@ -204,11 +205,11 @@ def getDMcal(df, mzcolumn, calmzcolumn, zcolumn):
                   'cal_dm_mz',
                   np.nan)
     df['cal_dm_mz'] = df[calmzcolumn] - df['theo_mz']
-    if 'cal_dm_mh' not in df:
-        df.insert(df.columns.get_loc(calmzcolumn)+1,
-                  'cal_dm_mh',
-                  np.nan)
-    df['cal_dm_mh'] = df['cal_dm_mz'] * df[zcolumn]
+    # if 'cal_dm_mh' not in df:
+    #     df.insert(df.columns.get_loc(calmzcolumn)+1,
+    #               'cal_dm_mh',
+    #               np.nan)
+    # df['cal_dm_mh'] = df['cal_dm_mz'] * df[zcolumn]
     return df
 
 def labelTargetDecoy(df, proteincolumn, decoyprefix):
@@ -238,8 +239,8 @@ def main(args):
     proteincolumn = config._sections['Input']['proteincolumn']
     decoyprefix = config._sections['Input']['decoyprefix']
     abscolumn = 'abs_error'
-    calabscolumn = 'cal_abs_error'
-    calmzcolumn = 'exp_mz_cal'
+    calabscolumn = 'cal_dm_mh'
+    calmzcolumn = 'cal_exp_mz'
     
     log_str = "Calibrating file: " + str(Path(args.infile))
     logging.info(log_str)
@@ -272,9 +273,9 @@ def main(args):
     # Use filtered set to calculate systematic error
     sys_error = getSysError(df_filtered, 0)
     # Use systematic error to correct infile
-    df = rawCorrection(df, sys_error)
+    df = rawCorrection(df, mzcolumn, sys_error)
     # Recalculate systematic error using calibrated masses
-    df = getErrors(df, 'exp_mz_cal', 1)
+    df = getErrors(df, calmzcolumn, 1)
     df_filtered = filterPeptides(df,
                                  score_min,
                                  ppm_max,
