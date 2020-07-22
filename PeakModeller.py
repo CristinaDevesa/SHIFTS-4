@@ -168,6 +168,11 @@ def main(args):
     Main function
     '''
     
+    #Main variables
+    bins = float(config._sections['PeakModeller']['bins'])
+    slope_points = int(config._sections['PeakModeller']['slope_points'])
+    smooth_points = int(config._sections['PeakModeller']['smooth_points'])
+    
     logging.info("Reading input file list...")
     with open(args.infile) as f:
         infiles = f.readlines()
@@ -181,15 +186,15 @@ def main(args):
 
     logging.info("Generating DMHistogram...")
     # make bins
-    df, bins_df = generate_histogram(df, float(config._sections['PeakModeller']['bins']))
+    df, bins_df = generate_histogram(df, bins)
     # calculate derivatives
     #grouped_bins_df = bins_df.groupby(['bin'])
     bins_df = first_derivative(bins_df, #does 1st smoothing pass and 2nd normal pass
-                               int(config._sections['PeakModeller']['points'])//2,
-                               int(config._sections['PeakModeller']['spoints'])//2)  
+                               slope_points//2,
+                               smooth_points//2)  
     bins_df = second_derivative(bins_df,
-                                int(config._sections['PeakModeller']['points'])//2,
-                                int(config._sections['PeakModeller']['spoints'])//2)
+                                slope_points//2,
+                                smooth_points//2)
         # check which bins pass
     logging.info("Writing output files...")
     # write DMhistogram
@@ -219,8 +224,8 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--config', default=defaultconfig, help='Path to custom config.ini file')
 
     parser.add_argument('-b', '--bins', help='Width of the bins')
-    parser.add_argument('-p', '--points', help='Number of points (bins) to use for slope calculation')
-    parser.add_argument('-s', '--spoints', help='Number of points (bins) to use for smoothing')
+    parser.add_argument('-p', '--slope_points', help='Number of points (bins) to use for slope calculation')
+    parser.add_argument('-s', '--smooth_points', help='Number of points (bins) to use for smoothing')
 
     parser.add_argument('-w',  '--n_workers', type=int, default=4, help='Number of threads/n_workers (default: %(default)s)')    
     parser.add_argument('-v', dest='verbose', action='store_true', help="Increase output verbosity")
@@ -232,11 +237,11 @@ if __name__ == '__main__':
     if args.bins is not None:
         config.set('PeakModeller', 'bins', str(args.bins))
         config.set('Logging', 'create_ini', '1')
-    if args.points is not None:
-        config.set('PeakModeller', 'points', str(args.points))
+    if args.slope_points is not None:
+        config.set('PeakModeller', 'slope_points', str(args.slope_points))
         config.set('Logging', 'create_ini', '1')
-    if args.spoints is not None:
-        config.set('PeakModeller', 'spoints', str(args.spoints))
+    if args.smooth_points is not None:
+        config.set('PeakModeller', 'smooth_points', str(args.smooth_points))
         config.set('Logging', 'create_ini', '1')
     # if something is changed, write a copy of ini
     if config.getint('Logging', 'create_ini') == 1:
