@@ -79,7 +79,7 @@ def getTheoMZ(df, mzcolumn, zcolumn, seqcolumn):
         return MZ
     
     df['theo_mz'] = df.apply(lambda x: _PSMtoMZ(x[seqcolumn], x[zcolumn]), axis = 1)
-    df['theo_mh'] = df.apply(lambda x: (x['theo_mz'] * x[zcolumn]) - (m_proton * x[zcolumn]), axis = 1)
+    df['theo_mh'] = df.apply(lambda x: (x['theo_mz'] * x[zcolumn]) - (m_proton * (x[zcolumn]-1)), axis = 1)
     return df
 
 def getErrors(df, mzcolumn, calibrated):
