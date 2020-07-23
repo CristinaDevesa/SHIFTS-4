@@ -79,7 +79,7 @@ def getTheoMZ(df, mzcolumn, zcolumn, seqcolumn):
         return MZ
     
     df['theo_mz'] = df.apply(lambda x: _PSMtoMZ(x[seqcolumn], x[zcolumn]), axis = 1)
-    df['theo_mh'] = df.apply(lambda x: x['theo_mz'] * x[zcolumn], axis = 1)
+    df['theo_mh'] = df.apply(lambda x: (x['theo_mz'] * x[zcolumn]) - (m_proton * x[zcolumn]), axis = 1)
     return df
 
 def getErrors(df, mzcolumn, calibrated):
@@ -156,7 +156,7 @@ def getSysError(df_filtered, calibrated):
     
     if calibrated:
         phi = math.sqrt(2) * erfinv(0.5)
-        mad = df_filtered['cal_rel_error'].mad()
+        mad = df_filtered['cal_ppm'].mad()
         avg_ppm_error = (mad / phi) 
         logging.info("Systematic error after calibration: " + str(round(sys_error, 6)))
         logging.info("StdDevMAD_ppm: " + str(round(avg_ppm_error,6)))
