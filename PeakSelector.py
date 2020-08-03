@@ -52,10 +52,10 @@ def areValid(intervals):
     sign of the slope, and the central point is the closest to 0.
     '''
     cont = 0
-    zero_bin = min(intervals['slope2'].tolist(), key=abs)
-    zero_index = intervals['slope2'].tolist().index(zero_bin)
+    zero_bin = min(intervals['slope1'].tolist(), key=abs)
+    zero_index = intervals['slope1'].tolist().index(zero_bin)
     if zero_index == len(intervals)//2: # Central point is closest to 0
-       if (intervals.loc[zero_index, 'slope2'] >= 0 and intervals.loc[zero_index+1, 'slope2'] < 0) or (intervals.loc[zero_index, 'slope2'] <= 0 and intervals.loc[zero_index-1, 'slope2'] > 0): # Change in sign  
+       if (intervals.loc[zero_index, 'slope1'] >= 0 and intervals.loc[zero_index+1, 'slope1'] < 0) or (intervals.loc[zero_index, 'slope1'] <= 0 and intervals.loc[zero_index-1, 'slope1'] > 0): # Change in sign  
            bin_list = intervals['bin'].tolist()
            cont = 1
            for i in range(1, len(bin_list)):
@@ -68,7 +68,7 @@ def areValid(intervals):
     
 def interpolateApex(bin_subset):
     x_list = bin_subset['midpoint'].tolist()
-    y_list = bin_subset['count'].tolist()
+    y_list = bin_subset['slope1'].tolist()
     sum1, sum2 = 0, 0
     for i in range(len(x_list)):
         sum1 += (x_list[i] - np.mean(x_list)) * (y_list[i] - np.mean(y_list))
