@@ -67,6 +67,7 @@ def getTheoMZ(df, mzcolumn, zcolumn, seqcolumn):
     
     def _PSMtoMZ(sequence, charge):
         total_aas = 2*m_hydrogen + m_oxygen
+        total_aas += charge*m_proton
         total_aas += float(MODs['nt']) + float(MODs['ct'])
         for aa in sequence:
             if aa.lower() in AAs:
@@ -75,11 +76,13 @@ def getTheoMZ(df, mzcolumn, zcolumn, seqcolumn):
                 # TODO
             if aa.lower() in MODs:
                 total_aas += float(MODs[aa.lower()])
+        MH = total_aas
         MZ = (total_aas + int(charge)*m_proton) / int(charge)
-        return MZ
+        return MZ, MH
     
-    df['theo_mz'] = df.apply(lambda x: _PSMtoMZ(x[seqcolumn], x[zcolumn]), axis = 1)
-    df['theo_mh'] = df.apply(lambda x: (x['theo_mz'] * x[zcolumn]) - (m_proton * (x[zcolumn]-1)), axis = 1)
+    df['theo_mz'] = df.apply(lambda x: _PSMtoMZ(x[seqcolumn], x[zcolumn])[0], axis = 1)
+    df['theo_mh'] = df.apply(lambda x: _PSMtoMZ(x[seqcolumn], x[zcolumn])[1], axis = 1)
+    #df['theo_mh'] = df.apply(lambda x: (x['theo_mz'] * x[zcolumn]) - (m_proton * (x[zcolumn]-1)), axis = 1)
     return df
 
 def getErrors(df, mzcolumn, calibrated):
