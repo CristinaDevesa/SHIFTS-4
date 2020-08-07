@@ -147,7 +147,7 @@ def filterPeptides(df, scoremin, ppmmax, scorecolumn, chargecolumn, mzcolumn,
     logging.info("Number of PSMs after filtering: " + str(df_filtered.shape[0]))
     return df_filtered
 
-def getSysError(df_filtered, calibrated):
+def getSysError(df_filtered, mzcolumn, calibrated):
     '''
     Calculate systematic error and average PPM error.
     '''
@@ -156,7 +156,7 @@ def getSysError(df_filtered, calibrated):
     else:
         abs_error = 'abs_error'
         
-    sys_error = df_filtered[abs_error].median()
+    sys_error = (df_filtered[abs_error]/df_filtered[mzcolumn]).median()
     
     if calibrated:
         phi = math.sqrt(2) * erfinv(0.5)
@@ -180,7 +180,7 @@ def rawCorrection(df, mzcolumn, sys_error):
         #df.insert(df.columns.get_loc('cal_exp_mz')+1, 'exp_mh_cal', np.nan)
     
     def _correct(exp_mz, abs_error, sys_error):
-        cal_exp_mz = exp_mz - sys_error
+        cal_exp_mz = exp_mz * (1  - sys_error)
         return cal_exp_mz
     
     #df['cal_exp_mz'] = df[config._sections['Input']['mzcolumn']] - sys_error
@@ -275,7 +275,7 @@ def main(args):
                                  abscolumn,
                                  decoyprefix)
     # Use filtered set to calculate systematic error
-    sys_error = getSysError(df_filtered, 0)
+    sys_error = getSysError(df_filtered, mzcolumn, 0)
     # Use systematic error to correct infile
     df = rawCorrection(df, mzcolumn, sys_error)
     # Recalculate systematic error using calibrated masses
@@ -290,7 +290,7 @@ def main(args):
                                  proteincolumn,
                                  abscolumn,
                                  decoyprefix)
-    cal_sys_error, avg_ppm_error = getSysError(df_filtered, 1)
+    cal_sys_error, avg_ppm_error = getSysError(df_filtered, mzcolumn, 1)
     # Calculate DMCal 
     df = getDMcal(df, mzcolumn, calmzcolumn, zcolumn)
     #Write to txt file
