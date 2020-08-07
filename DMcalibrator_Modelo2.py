@@ -163,13 +163,13 @@ def getSysError(df_filtered, mzcolumn, calibrated):
         phi = math.sqrt(2) * erfinv(0.5)
         mad = df_filtered['cal_ppm'].mad()
         avg_ppm_error = (mad / phi) 
-        logging.info("Systematic error after calibration: " + str(round(sys_error, 6)))
-        logging.info("Alpha after calibration: " + str(round(alpha, 6)))
-        logging.info("StdDevMAD_ppm: " + str(round(avg_ppm_error,6)))
+        logging.info("Systematic error after calibration: " + str(round(sys_error, 10)))
+        logging.info("Alpha after calibration: " + str(round(alpha, 10)))
+        logging.info("StdDevMAD_ppm: " + str(round(avg_ppm_error, 10)))
         return sys_error, alpha, avg_ppm_error
     else:
-        logging.info("Systematic error: " + str(round(sys_error, 6)))
-        logging.info("Alpha: " + str(round(alpha, 6)))
+        logging.info("Systematic error: " + str(round(sys_error, 10)))
+        logging.info("Alpha: " + str(round(alpha, 10)))
         return sys_error, alpha
 
 def rawCorrection(df, mzcolumn, sys_error):
