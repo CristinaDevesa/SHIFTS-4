@@ -212,11 +212,11 @@ def getDMcal(df, mzcolumn, calmzcolumn, zcolumn):
                   'cal_dm_mz',
                   np.nan)
     df['cal_dm_mz'] = df[calmzcolumn] - df['theo_mz']
-    # if 'cal_dm_mh' not in df:
-    #     df.insert(df.columns.get_loc(calmzcolumn)+1,
-    #               'cal_dm_mh',
-    #               np.nan)
-    # df['cal_dm_mh'] = df['cal_dm_mz'] * df[zcolumn]
+    if 'cal_dm_mh' not in df:
+        df.insert(df.columns.get_loc(calmzcolumn)+1,
+                  'cal_dm_mh',
+                  np.nan)
+    df['cal_dm_mh'] = df['cal_dm_mz'] * df[zcolumn]
     return df
 
 def labelTargetDecoy(df, proteincolumn, decoyprefix):
