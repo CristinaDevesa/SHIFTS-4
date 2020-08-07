@@ -156,18 +156,21 @@ def getSysError(df_filtered, mzcolumn, calibrated):
     else:
         abs_error = 'abs_error'
         
-    sys_error = (df_filtered[abs_error]/df_filtered[mzcolumn]).median()
+    sys_error = df_filtered[abs_error].median()
+    alpha = (df_filtered[abs_error]/df_filtered[mzcolumn]).median()
     
     if calibrated:
         phi = math.sqrt(2) * erfinv(0.5)
         mad = df_filtered['cal_ppm'].mad()
         avg_ppm_error = (mad / phi) 
         logging.info("Systematic error after calibration: " + str(round(sys_error, 6)))
+        logging.info("Alpha after calibration: " + str(round(alpha, 6)))
         logging.info("StdDevMAD_ppm: " + str(round(avg_ppm_error,6)))
-        return sys_error, avg_ppm_error
+        return sys_error, alpha, avg_ppm_error
     else:
         logging.info("Systematic error: " + str(round(sys_error, 6)))
-        return sys_error
+        logging.info("Alpha: " + str(round(alpha, 6)))
+        return sys_error, alpha
 
 def rawCorrection(df, mzcolumn, sys_error):
     '''
@@ -275,9 +278,9 @@ def main(args):
                                  abscolumn,
                                  decoyprefix)
     # Use filtered set to calculate systematic error
-    sys_error = getSysError(df_filtered, mzcolumn, 0)
+    sys_error, alpha = getSysError(df_filtered, mzcolumn, 0)
     # Use systematic error to correct infile
-    df = rawCorrection(df, mzcolumn, sys_error)
+    df = rawCorrection(df, mzcolumn, alpha)
     # Recalculate systematic error using calibrated masses
     df = getErrors(df, calmzcolumn, 1)
     df_filtered = filterPeptides(df,
@@ -290,7 +293,7 @@ def main(args):
                                  proteincolumn,
                                  abscolumn,
                                  decoyprefix)
-    cal_sys_error, avg_ppm_error = getSysError(df_filtered, mzcolumn, 1)
+    cal_sys_error, cal_alpha, avg_ppm_error = getSysError(df_filtered, mzcolumn, 1)
     # Calculate DMCal 
     df = getDMcal(df, mzcolumn, calmzcolumn, zcolumn)
     #Write to txt file
