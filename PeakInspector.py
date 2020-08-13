@@ -157,7 +157,7 @@ def plot_pleak(pi, peaks_list, column_name, df):
     return [pi]
 
 
-def iniMaker(filename):
+def iniMaker(filename, plot_letters, letter_to_colInfo):
     '''
 
     '''
@@ -165,17 +165,40 @@ def iniMaker(filename):
     config.set('Parameters', 'Infile', str(args.infile))
     config.set('Parameters', 'Peaks', str(args.tDM))
 
-    config.set('Plots', 'frequency', str(args.f))
-    config.set('Plots', 'smooth_frequency', str(args.sf))
-    config.set('Plots', 'slope1', str(args.s1))
-    config.set('Plots', 'slope2', str(args.s2))
+    config.set('Plots', 'frequency', str('A' in plot_letters))
+    config.set('Plots', 'smooth_frequency', str('B' in plot_letters))
+    config.set('Plots', 'slope1', str('C' in plot_letters))
+    config.set('Plots', 'slope2', str('D' in plot_letters))
 
-    config.set('Thresholds', 'frequency_T', str(args.fT))
-    config.set('Thresholds', 'smooth_frequency_T', str(args.sfT))
-    config.set('Thresholds', 'slope1_T1', str(args.s1T1))
-    config.set('Thresholds', 'slope1_T2', str(args.s1T2))
-    config.set('Thresholds', 'slope2_T1', str(args.s2T1))
-    config.set('Thresholds', 'slope2_T2', str(args.s2T2))
+    if letter_to_colInfo['A']['Threshold']:
+        config.set('Thresholds', 'frequency_T', str(letter_to_colInfo['A']['Threshold'][0]))
+    else:
+        config.set('Thresholds', 'frequency_T', '0')
+
+    if letter_to_colInfo['B']['Threshold']:
+        config.set('Thresholds', 'smooth_frequency_T', str(letter_to_colInfo['B']['Threshold'][0]))
+    else:
+        config.set('Thresholds', 'smooth_frequency_T', '0')
+
+    if letter_to_colInfo['C']['Threshold']:
+        config.set('Thresholds', 'slope1_T1', str(letter_to_colInfo['C']['Threshold'][0]))
+    else:
+        config.set('Thresholds', 'slope1_T1', '0')
+
+    if len(letter_to_colInfo['C']['Threshold']) == 2:
+        config.set('Thresholds', 'slope1_T2', str(letter_to_colInfo['C']['Threshold'][1]))
+    else:
+        config.set('Thresholds', 'slope1_T2', '0')
+
+    if letter_to_colInfo['D']['Threshold']:
+        config.set('Thresholds', 'slope2_T1', str(letter_to_colInfo['D']['Threshold'][0]))
+    else:
+        config.set('Thresholds', 'slope2_T1', '0')
+
+    if len(letter_to_colInfo['D']['Threshold']) == 2:
+        config.set('Thresholds', 'slope2_T2', str(letter_to_colInfo['D']['Threshold'][1]))
+    else:
+        config.set('Thresholds', 'slope2_T2', '0')
 
     ini_path = os.path.join(os.path.dirname(args.infile), filename[:-5] + '.ini')
 
@@ -206,7 +229,7 @@ def savePlot(plot, plot_letters, letter_to_colInfo):
 
     # Create ini associated to this plot
     if config.getint('Logging', 'create_ini'):
-        iniMaker(filename)
+        iniMaker(filename, plot_letters, letter_to_colInfo)
 
 
 def plot_graphs(plot_letters, letter_to_colInfo, df, peaks_list):
