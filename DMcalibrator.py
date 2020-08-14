@@ -248,6 +248,10 @@ def main(args):
     
     log_str = "Calibrating file: " + str(Path(args.infile))
     logging.info(log_str)
+    log_str = "Using score_min = " + str(score_min)
+    logging.info(log_str)
+    log_str = "Using ppm_max = " + str(ppm_max)
+    logging.info(log_str)
     # Read infile
     df = readInfile(Path(args.infile),
                     scorecolumn,
