@@ -102,7 +102,7 @@ def plot_bottom_graph(main_plot, letter, letter_to_colInfo, df):
     #Build bottom plot
     bottom_plot = figure(title=bottom_plot_name + " representation",\
          x_axis_label='Delta mass', y_axis_label=bottom_plot_name,\
-         width=1300, height=400, x_range=main_plot.x_range, tools = "pan,yzoom_in,yzoom_out,wheel_zoom,box_zoom,reset,save,undo")#, y_range=main_plot.y_range)
+         width=1300, height=400, x_range=main_plot.x_range, tools = "pan,xzoom_in,xzoom_out,ywheel_zoom,box_zoom,reset,save,undo")
 
     try:
         bottom_plot.xaxis.ticker.desired_num_ticks = 30
@@ -126,9 +126,15 @@ def plot_threshold(pi, threshold, df):
     Return: It returns the figure with added threshold
     '''
 
+    min_mz = np.min(df.df.iloc[:, 1])
+    max_mz = np.max(df.df.iloc[:, 1])
+
+    x_axis = (min_mz, max_mz)
+
     for threshold_i in threshold:
-        threshold_i_Y_values = np.ones_like(df.df.iloc[:, 1])*threshold_i
-        pi.line(df.df.iloc[:, 1], threshold_i_Y_values, line_color='black', line_dash="4 4")
+        # threshold_i_Y_values = np.ones_like(df.df.iloc[:, 1])*threshold_i
+        y_axis = np.ones_like(x_axis)*threshold_i
+        pi.line(x_axis, y_axis, line_color='black', line_dash="4 4")
     
     return [pi]
 
@@ -148,8 +154,8 @@ def plot_pleak(pi, peaks_list, column_name, df):
     min_value = min_value - abs(0.1*min_value)
     max_value = np.max(df.df.loc[:, column_name])*1.1
 
-    y_axis = np.arange(min_value, max_value)
-
+    # y_axis = np.arange(min_value, max_value)
+    y_axis = (min_value, max_value)
     for peak in peaks_list:
         x_axis = np.ones_like(y_axis)*peak
         pi.line(x_axis, y_axis, line_color='green', line_width=2)
@@ -224,8 +230,10 @@ def savePlot(plot, plot_letters, letter_to_colInfo):
     filename = filename.replace('__', '_')
     filename = filename.replace('-', 'm')
 
+    filename = os.path.join(os.path.dirname(args.infile), filename)
+
     save(plot, filename=filename)
-    logging.info(f"Graph saved as {filename}")
+    logging.info(f"Graph saved: {filename}")
 
     # Create ini associated to this plot
     if config.getint('Logging', 'create_ini'):
@@ -264,7 +272,7 @@ def plot_graphs(plot_letters, letter_to_colInfo, df, peaks_list):
     # Build the first plot
     p1 = figure(title=first_plot_name + " representation",\
          x_axis_label='Delta mass', y_axis_label=first_plot_name,\
-         width=1300, height=400, tools = "pan,yzoom_in,yzoom_out,wheel_zoom,box_zoom,reset,save,undo")
+         width=1300, height=400, tools = "pan,xzoom_in,xzoom_out,ywheel_zoom,box_zoom,reset,save,undo")
 
     try:
         p1.xaxis.ticker.desired_num_ticks = 30
