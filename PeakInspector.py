@@ -20,9 +20,10 @@ import configparser
 import logging
 import pandas as pd
 import numpy as np
+import re
 import matplotlib.pyplot as plt
 import matplotlib.ticker
-from bokeh.plotting import figure, output_file, show
+from bokeh.plotting import figure, output_file, show, save
 from bokeh.models import SingleIntervalTicker, LinearAxis
 from bokeh.layouts import gridplot
 import tkinter as tk
@@ -101,7 +102,7 @@ def plot_bottom_graph(main_plot, letter, letter_to_colInfo, df):
     #Build bottom plot
     bottom_plot = figure(title=bottom_plot_name + " representation",\
          x_axis_label='Delta mass', y_axis_label=bottom_plot_name,\
-         width=1300, height=400, x_range=main_plot.x_range, tools = "pan,yzoom_in,yzoom_out,wheel_zoom,box_zoom,reset,save,undo")#, y_range=main_plot.y_range)
+         width=1300, height=400, x_range=main_plot.x_range, tools = "pan,xzoom_in,xzoom_out,ywheel_zoom,box_zoom,reset,save,undo")
 
     try:
         bottom_plot.xaxis.ticker.desired_num_ticks = 30
@@ -115,7 +116,131 @@ def plot_bottom_graph(main_plot, letter, letter_to_colInfo, df):
 
     return bottom_plot
 
-def plot_graphs(plot_letters, letter_to_colInfo, df):
+
+def plot_threshold(pi, threshold, df):
+    '''
+    Function used to plot threshold lines
+    Input:  pi: Figure in which threshold is plotted
+            threshold: List with threshold values
+            df: Pandas data frame with all values
+    Return: It returns the figure with added threshold
+    '''
+
+    min_mz = np.min(df.df.iloc[:, 1])
+    max_mz = np.max(df.df.iloc[:, 1])
+
+    x_axis = (min_mz, max_mz)
+
+    for threshold_i in threshold:
+        # threshold_i_Y_values = np.ones_like(df.df.iloc[:, 1])*threshold_i
+        y_axis = np.ones_like(x_axis)*threshold_i
+        pi.line(x_axis, y_axis, line_color='black', line_dash="4 4")
+    
+    return [pi]
+
+
+def plot_pleak(pi, peaks_list, column_name, df):
+    '''
+    Input:
+        - pi: Bokeh plot figure in which peaks are plotted
+        - peaks_list: List of floats containing theoretical DM given by the user
+        - column_name: String with name of the column plotted
+        - df: Dataframe object containing the histogram
+    Return:
+        - [pi]: List containing the modified plot
+    '''
+
+    min_value = np.min(df.df.loc[:, column_name])
+    min_value = min_value - abs(0.1*min_value)
+    max_value = np.max(df.df.loc[:, column_name])*1.1
+
+    # y_axis = np.arange(min_value, max_value)
+    y_axis = (min_value, max_value)
+    for peak in peaks_list:
+        x_axis = np.ones_like(y_axis)*peak
+        pi.line(x_axis, y_axis, line_color='green', line_width=2)
+    
+    return [pi]
+
+
+def iniMaker(filename, plot_letters, letter_to_colInfo):
+    '''
+
+    '''
+
+    config.set('Parameters', 'Infile', str(args.infile))
+    config.set('Parameters', 'Peaks', str(args.tDM))
+
+    config.set('Plots', 'frequency', str('A' in plot_letters))
+    config.set('Plots', 'smooth_frequency', str('B' in plot_letters))
+    config.set('Plots', 'slope1', str('C' in plot_letters))
+    config.set('Plots', 'slope2', str('D' in plot_letters))
+
+    if letter_to_colInfo['A']['Threshold']:
+        config.set('Thresholds', 'frequency_T', str(letter_to_colInfo['A']['Threshold'][0]))
+    else:
+        config.set('Thresholds', 'frequency_T', '0')
+
+    if letter_to_colInfo['B']['Threshold']:
+        config.set('Thresholds', 'smooth_frequency_T', str(letter_to_colInfo['B']['Threshold'][0]))
+    else:
+        config.set('Thresholds', 'smooth_frequency_T', '0')
+
+    if letter_to_colInfo['C']['Threshold']:
+        config.set('Thresholds', 'slope1_T1', str(letter_to_colInfo['C']['Threshold'][0]))
+    else:
+        config.set('Thresholds', 'slope1_T1', '0')
+
+    if len(letter_to_colInfo['C']['Threshold']) == 2:
+        config.set('Thresholds', 'slope1_T2', str(letter_to_colInfo['C']['Threshold'][1]))
+    else:
+        config.set('Thresholds', 'slope1_T2', '0')
+
+    if letter_to_colInfo['D']['Threshold']:
+        config.set('Thresholds', 'slope2_T1', str(letter_to_colInfo['D']['Threshold'][0]))
+    else:
+        config.set('Thresholds', 'slope2_T1', '0')
+
+    if len(letter_to_colInfo['D']['Threshold']) == 2:
+        config.set('Thresholds', 'slope2_T2', str(letter_to_colInfo['D']['Threshold'][1]))
+    else:
+        config.set('Thresholds', 'slope2_T2', '0')
+
+    ini_path = os.path.join(os.path.dirname(args.infile), filename[:-5] + '.ini')
+
+    with open(ini_path, 'w') as newconfig:
+        logging.info(f"Saving .ini: {ini_path}")
+        config.write(newconfig)
+
+
+
+def savePlot(plot, plot_letters, letter_to_colInfo):
+    '''
+    Input:
+        - plot: Bokeh plot to be saved
+        - plot_letters: List of strings containing the letters associated to the plotted graphs
+        - letter_to_colInfo: Dictionary that associates each letter to the plot information
+    '''
+
+    # Build filename: 
+    filename = '_'.join([letter_to_colInfo[letter]['ColumnName'] + '_' + '_'.join([str(int(thr)) for thr in letter_to_colInfo[letter]['Threshold']]) \
+        for letter in plot_letters])
+    
+    filename += '.html'
+    filename = filename.replace('__', '_')
+    filename = filename.replace('-', 'm')
+
+    filename = os.path.join(os.path.dirname(args.infile), filename)
+
+    save(plot, filename=filename)
+    logging.info(f"Graph saved: {filename}")
+
+    # Create ini associated to this plot
+    if config.getint('Logging', 'create_ini'):
+        iniMaker(filename, plot_letters, letter_to_colInfo)
+
+
+def plot_graphs(plot_letters, letter_to_colInfo, df, peaks_list):
     '''
     Function used to make all plots. The first plot will receive a different
     treatment than the others
@@ -147,7 +272,7 @@ def plot_graphs(plot_letters, letter_to_colInfo, df):
     # Build the first plot
     p1 = figure(title=first_plot_name + " representation",\
          x_axis_label='Delta mass', y_axis_label=first_plot_name,\
-         width=1300, height=400, tools = "pan,yzoom_in,yzoom_out,wheel_zoom,box_zoom,reset,save,undo")
+         width=1300, height=400, tools = "pan,xzoom_in,xzoom_out,ywheel_zoom,box_zoom,reset,save,undo")
 
     try:
         p1.xaxis.ticker.desired_num_ticks = 30
@@ -171,16 +296,25 @@ def plot_graphs(plot_letters, letter_to_colInfo, df):
         logging.info("Plotting thresholds")
         all_graphs_list = [plot_threshold(pi[0], letter_to_colInfo[letter]['Threshold'], df) \
             for letter, pi in zip(plot_letters, all_graphs_list)]
+        
+        logging.info("Plotting theoretical DM")
+        all_graphs_list = [plot_pleak(pi[0], peaks_list, letter_to_colInfo[letter]['ColumnName'], df) \
+            for letter, pi in zip(plot_letters, all_graphs_list)]
 
         # Show the plot
         plot = gridplot(all_graphs_list)
         show(plot)
+        savePlot(plot, plot_letters, letter_to_colInfo)
 
     else:
         logging.info("Plotting threshold")
         plot_threshold(p1, letter_to_colInfo[plot_letters[0]]['Threshold'], df)
 
+        logging.info("Plotting theoretical DM")
+        plot_pleak(p1, peaks_list, letter_to_colInfo[plot_letters[0]]['ColumnName'], df)
+
         show(p1)
+        savePlot(p1, plot_letters, letter_to_colInfo)
     
     
     logging.info('Graphs plotted')
@@ -196,26 +330,30 @@ def parse_entry_threshold(entry_list):
     return [float(entry.get()) for entry in entry_list if entry.get().lower() not in ['', 'none']]
 
 
-def plot_threshold(pi, threshold, df):
+def getPeaks(peaks_str):
     '''
-    Function used to plot threshold lines
-    Input:  pi: Figure in which threshold is plotted
-            threshold: List with threshold values
-            df: Pandas data frame with all values
-    Return: It returns the figure with added threshold
+    Input:
+        - peaks_str: String containing the theoretical DM given by the user
+    Return:
+        - peaks_list: List of floats with the theoretical DM extracted from peaks_str
     '''
 
-    for threshold_i in threshold:
-        threshold_i_Y_values = np.ones_like(df.df.iloc[:, 1])*threshold_i
-        pi.line(df.df.iloc[:, 1], threshold_i_Y_values, line_color='black', line_dash="4 4")
-    
-    return [pi]
+    match = re.search(r'-?\d+(\.\d*)?', peaks_str)
+    peaks_list = []
+
+    while match:
+        peaks_list.append(float(match.group()))
+        peaks_str = peaks_str[match.span()[1]:]
+        match = re.search(r'-?\d+(\.\d*)?', peaks_str)
+
+    return peaks_list
+
 
 
 def click_plot_buttom(letter_to_colInfo, df, freq, smooth_freq, s1, s2, freq_entry, smooth_freq_entry,\
-    s1_entry1, s1_entry2, s2_entry1, s2_entry2):
+    s1_entry1, s1_entry2, s2_entry1, s2_entry2, peaks):
     '''
-    Function executed hen the user press the buttom Plot. It receives all parameters required to plot
+    Function executed when the user press the buttom Plot. It receives all parameters required to plot
     '''
 
     all_entries = [[freq_entry], [smooth_freq_entry], [s1_entry1, s1_entry2], [s2_entry1, s2_entry2]]
@@ -225,8 +363,11 @@ def click_plot_buttom(letter_to_colInfo, df, freq, smooth_freq, s1, s2, freq_ent
 
     [letter_to_colInfo[letter].update({'Threshold': parse_entry_threshold(entry_list)})\
          for letter, entry_list in zip(['A', 'B', 'C', 'D'], all_entries)]
+
+    # Get theoretical DM given by the user
+    peaks_list = getPeaks(peaks)
     
-    plot_graphs(plot_letters, letter_to_colInfo, df)
+    plot_graphs(plot_letters, letter_to_colInfo, df, peaks_list)
 
 
 
@@ -346,7 +487,7 @@ def main(args):
     plot_btn = tk.Button(window, text="Plot", command=lambda: click_plot_buttom(letter_to_colInfo, df_object,\
             frequency_check_state, smooth_frequency_check_state, slope1_check_state, slope2_check_state, \
             lbl2_freq_entry, lbl2_smooth_freq_entry, lbl2_slope1_entry1, lbl2_slope1_entry2, lbl2_slope2_entry1,\
-            lbl2_slope2_entry2))
+            lbl2_slope2_entry2, args.tDM))
     plot_btn.place(x=5, y=290)
 
 
@@ -357,7 +498,7 @@ def main(args):
         click_plot_buttom(letter_to_colInfo, df_object,\
                 frequency_check_state, smooth_frequency_check_state, slope1_check_state, slope2_check_state, \
                 lbl2_freq_entry, lbl2_smooth_freq_entry, lbl2_slope1_entry1, lbl2_slope1_entry2, lbl2_slope2_entry1,\
-                lbl2_slope2_entry2)
+                lbl2_slope2_entry2, args.tDM)
 
     window.mainloop()
 
@@ -377,8 +518,10 @@ if __name__ == '__main__':
         '''
     )
 
+    defaultconfig = os.path.join(os.path.dirname(__file__), "config/PeakInspector.ini")
+
     parser.add_argument('-i', '--infile', help='Path to input file', type=str)
-    parser.add_argument('-c', '--config', help='Path to custom config.ini file', type=str)
+    parser.add_argument('-c', '--config', default=defaultconfig, help='Path to custom config.ini file', type=str)
 
     parser.add_argument('-v', dest='verbose', action='store_true', help='Increase output verbosity')
 
@@ -396,22 +539,65 @@ if __name__ == '__main__':
     parser.add_argument('-s2T1', default='', help='Define threshold 1 for slope 2 plot', type=str)
     parser.add_argument('-s2T2', default='', help='Define threshold 2 for slope 2 plot', type=str)
 
+    # Arguments to set theoretical DM
+    parser.add_argument('-tDM', default='', help='Set theoretical DM peaks to be plotted (e.g. "0.98, 100")', type=str)
+
     args = parser.parse_args()
 
     # If user use config file, parse it
     if args.config:
         config  = configparser.ConfigParser(inline_comment_prefixes='#')
         config.read(args.config)
+        
+        
+    if not args.f and config['Plots']['frequency'].lower().strip() == 'true':
+        args.f = config['Plots']['frequency']
+        config.set('Logging', 'create_ini', '1')
+        
+    if not args.sf and config['Plots']['smooth_frequency'].lower().strip() == 'true':
+        args.sf = config['Plots']['smooth_frequency']
+        config.set('Logging', 'create_ini', '1')
 
-        # Assign to parse variables which data is plotted
-        args.f, args.sf, args.s1, args.s2 = config['Plots']['frequency'], config['Plots']['smooth_frequency'],\
-            config['Plots']['slope1'], config['Plots']['slope2']
+    if not args.s1 and config['Plots']['slope1'].lower().strip() == 'true':
+        args.s1 = config['Plots']['slope1']
+        config.set('Logging', 'create_ini', '1')
 
-        # Assign to parse variables the thresholds defined
-        args.fT, args.sfT, args.s1T1, args.s1T2, args.s2T1, args.s2T2 = config['Thresholds']['frequency_T'],\
-            config['Thresholds']['smooth_frequency_T'], config['Thresholds']['slope1_T1'], \
-            config['Thresholds']['slope1_T2'], config['Thresholds']['slope2_T1'], config['Thresholds']['slope2_T2']
+    if not args.s2 and config['Plots']['slope2'].lower().strip() == 'true':
+        args.s2 = config['Plots']['slope2']
+        config.set('Logging', 'create_ini', '1')
 
+    if not args.fT:
+        args.fT = config['Thresholds']['frequency_T']
+        config.set('Logging', 'create_ini', '1')
+
+    if not args.sfT:
+        args.sfT = config['Thresholds']['smooth_frequency_T']
+        config.set('Logging', 'create_ini', '1')
+
+    if not args.s1T1:
+        args.s1T1 = config['Thresholds']['slope1_T1']
+        config.set('Logging', 'create_ini', '1')
+
+    if not args.s1T2:
+        args.s1T2 = config['Thresholds']['slope1_T2']
+        config.set('Logging', 'create_ini', '1')
+
+    if not args.s2T1:
+        args.s2T1 = config['Thresholds']['slope2_T1']
+        config.set('Logging', 'create_ini', '1')
+
+    if not args.s2T2:
+        args.s2T2 = config['Thresholds']['slope2_T2']
+        config.set('Logging', 'create_ini', '1')
+
+    if not args.infile:
+        args.infile = config['Parameters']['Infile']
+        config.set('Logging', 'create_ini', '1')
+
+    if not args.tDM:
+        args.tDM = config['Parameters']['Peaks']
+        config.set('Logging', 'create_ini', '1')
+        
 
     # logging debug level. By default, info level
     if args.infile:
