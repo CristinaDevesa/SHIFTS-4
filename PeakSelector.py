@@ -122,6 +122,9 @@ def main(args):
     
     # Filter by slope and frequency, calculate apexes
     logging.info("Filtering...")
+    logging.info("Slope threshold = " + str(slope))
+    logging.info("Frequency threshold = " + str(frequency))
+    logging.info("Number of points to use for apex calculation = " + str(apex_points))
     df_hist = filterPeaks(df_hist, slope, frequency)
     df_hist.reset_index(drop=True, inplace=True)
     df_hist = parseInterval(df_hist)
