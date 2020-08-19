@@ -31,7 +31,19 @@ def filterPeaks(df_hist, slope, frequency):
     Find peaks that are above the thresholds for slope and PSMs.
     '''
     # TODO: allow specify slope and count columns in INI?
-    df_hist = df_hist[abs(df_hist['slope1']) >= slope]
+    df_hist['apex'] = 0
+    df_hist['previous'] = df_hist['slope1'].shift()
+    df_hist['apex'] = df_hist.apply(lambda x: 1 if (x['slope1']<0 and x['previous']>0) else 0, axis = 1)
+    df_hist = df_hist.drop('previous', 1)
+    
+    df_hist1 = df_hist[abs(df_hist['slope1']) >= slope]
+    df_hist2 = df_hist[df_hist['apex'] == 1]
+    
+    df_hist = pd.concat([df_hist1, df_hist2])
+    df_hist.drop_duplicates(subset ="midpoint", keep = "first", inplace = True) 
+    df_hist.sort_values(by=['midpoint'], inplace=True)
+    df_hist.reset_index(drop=True, inplace=True)
+    
     df_hist = df_hist[df_hist['count'] >= frequency]
     return df_hist
 
