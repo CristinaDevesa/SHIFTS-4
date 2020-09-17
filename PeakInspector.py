@@ -102,7 +102,8 @@ def plot_bottom_graph(main_plot, letter, letter_to_colInfo, df):
     #Build bottom plot
     bottom_plot = figure(title=bottom_plot_name + " representation",\
          x_axis_label='Delta mass', y_axis_label=bottom_plot_name,\
-         width=1300, height=400, x_range=main_plot.x_range, tools = "pan,xzoom_in,xzoom_out,ywheel_zoom,box_zoom,reset,save,undo")
+         width=1300, height=400, x_range=main_plot.x_range,\
+         tools = "pan,xzoom_in,xzoom_out,ywheel_zoom,box_zoom,reset,save,undo,hover", tooltips=[("Name", "$name")])
 
     try:
         bottom_plot.xaxis.ticker.desired_num_ticks = 30
@@ -112,7 +113,7 @@ def plot_bottom_graph(main_plot, letter, letter_to_colInfo, df):
         print("bokeh package needs to be updated (pip install bokeh -U)")
         sys.exit()
 		
-    bottom_plot.line(df.df.iloc[:, 1], df.df.iloc[:, bottom_plot_index], line_width=2, color=bottom_plot_color)
+    bottom_plot.line(df.df.iloc[:, 1], df.df.iloc[:, bottom_plot_index], line_width=2, color=bottom_plot_color, name=bottom_plot_name)
 
     return bottom_plot
 
@@ -155,10 +156,10 @@ def plot_pleak(pi, peaks_list, column_name, df):
     max_value = np.max(df.df.loc[:, column_name])*1.1
 
     # y_axis = np.arange(min_value, max_value)
-    y_axis = (min_value, max_value)
-    for peak in peaks_list:
+    y_axis = (min_value, 0, max_value)
+    for peak, peak_name in peaks_list:
         x_axis = np.ones_like(y_axis)*peak
-        pi.line(x_axis, y_axis, line_color='green', line_width=2)
+        pi.line(x_axis, y_axis, line_color='green', line_width=2, name=peak_name)
     
     return [pi]
 
@@ -272,7 +273,7 @@ def plot_graphs(plot_letters, letter_to_colInfo, df, peaks_list):
     # Build the first plot
     p1 = figure(title=first_plot_name + " representation",\
          x_axis_label='Delta mass', y_axis_label=first_plot_name,\
-         width=1300, height=400, tools = "pan,xzoom_in,xzoom_out,ywheel_zoom,box_zoom,reset,save,undo")
+         width=1300, height=400, tools = "pan,xzoom_in,xzoom_out,ywheel_zoom,box_zoom,reset,save,undo,hover", tooltips=[('Name', '$name')])
 
     try:
         p1.xaxis.ticker.desired_num_ticks = 30
@@ -282,7 +283,7 @@ def plot_graphs(plot_letters, letter_to_colInfo, df, peaks_list):
         print("bokeh package needs to be updated (pip install bokeh -U)")
         sys.exit()
 
-    p1.line(df.df.iloc[:, 1], df.df.iloc[:, first_plot_index], line_width=2, color=first_plot_color)
+    p1.line(df.df.iloc[:, 1], df.df.iloc[:, first_plot_index], line_width=2, color=first_plot_color, name=first_plot_name)
 
     # If there are more plots, these are represented below using plot_bottom_graph function
     if len(plot_letters) > 1:
@@ -335,16 +336,25 @@ def getPeaks(peaks_str):
     Input:
         - peaks_str: String containing the theoretical DM given by the user
     Return:
-        - peaks_list: List of floats with the theoretical DM extracted from peaks_str
+        - peaks_list: List of pairs. The first element of each pair is a float with the theoretical DM and the
+        second element is its associated name
     '''
 
-    match = re.search(r'-?\d+(\.\d*)?', peaks_str)
-    peaks_list = []
+    peaks_str += '\n' if peaks_str[-1] != '\n' else peaks_str
 
+    match = re.search(r'(-?\d+(?:\.\d*)?)(?:\n|(?:\s*,\s*|\s+)([^\n]*)\n)', peaks_str)
+    peaks_list = []
+    
     while match:
-        peaks_list.append(float(match.group()))
+        # List of double containing m/z and name. If there is no name it stores "NA"
+        peak_tmp = [float(match.groups()[0])]
+        peak_tmp.append("NA") if not match.groups()[1] else peak_tmp.append(match.groups()[1])
+        # Add pair to peak_list object
+        peaks_list.append(peak_tmp) 
+
+        # recompose peaks_str and apply re.search
         peaks_str = peaks_str[match.span()[1]:]
-        match = re.search(r'-?\d+(\.\d*)?', peaks_str)
+        match = re.search(r'(-?\d+(?:\.\d*)?)(?:\n|(?:\s*,\s*|\s+)([^\n]*)\n)', peaks_str)
 
     return peaks_list
 
