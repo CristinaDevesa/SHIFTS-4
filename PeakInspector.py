@@ -135,7 +135,7 @@ def plot_threshold(pi, threshold, df):
     for threshold_i in threshold:
         # threshold_i_Y_values = np.ones_like(df.df.iloc[:, 1])*threshold_i
         y_axis = np.ones_like(x_axis)*threshold_i
-        pi.line(x_axis, y_axis, line_color='black', line_dash="4 4")
+        pi.line(x_axis, y_axis, line_color='black', line_dash="4 4", name="Threshold")
     
     return [pi]
 
