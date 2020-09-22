@@ -39,10 +39,16 @@ def multipleApex(apex_list, apex_massdiff):
     new_apex_list = []
     for i in range(len(apex_list)):
         check = []
-        if i-1 >= 0: check.append(diffs[i-1])
-        if i <= len(diffs)-1: check.append(diffs[i])
+        if i-1 >= 0: check.append(diffs[i-1]) # not the first one
+        if i <= len(diffs)-1: check.append(diffs[i]) # not the last one
         if all(diff <= apex_massdiff for diff in check):
             new_apex_list.append(apex_list[i])
+    return new_apex_list
+
+def firstAndLastApex(apex_list):
+    new_apex_list = []
+    new_apex_list.append(apex_list[0])
+    new_apex_list.append(apex_list[-1])
     return new_apex_list
 
 def peakSelector(df_hist, slope, frequency, apex_massdiff, apex_points):
@@ -110,7 +116,8 @@ def peakSelector(df_hist, slope, frequency, apex_massdiff, apex_points):
                     for i in peak_df['midpoint'].loc[peak_df['apex'] == 1]:
                         apex_bin_list.append(i)
                 if 1 in peak_df['apex'].value_counts().index and peak_df['apex'].value_counts()[1] > 1: #more than one potential apex
-                    apex_bin_list.extend(multipleApex(list(peak_df['midpoint'].loc[peak_df['apex'] == 1]), apex_massdiff))
+                    #apex_bin_list.extend(multipleApex(list(peak_df['midpoint'].loc[peak_df['apex'] == 1]), apex_massdiff))
+                    apex_bin_list.extend(firstAndLastApex(list(peak_df['midpoint'].loc[peak_df['apex'] == 1])))
     
     ############
     
