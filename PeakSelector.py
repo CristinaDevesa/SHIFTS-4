@@ -22,17 +22,11 @@ import pandas as pd
 import numpy as np
 pd.options.mode.chained_assignment = None  # default='warn'
 
-#infile = r"D:\CNIC\SHIFTS-4\testCris\ALL_calibrated_DMHistogram.txt"
-#df_hist.to_csv(outfile, index=False, sep='\t', encoding='utf-8')
-
 def readHistogram(infile):
     df_hist = pd.read_csv(args.infile, sep="\t", float_precision='high')
     df_hist = df_hist.dropna() # Remove rows with missing values (will always have some in beginning and end)
     df_hist.reset_index(drop=True, inplace=True)
     return df_hist
-
-# for testing purposes: groups = dict(list(grouped_hist))
-# example problem group: 776
 
 def multipleApex(apex_list, apex_massdiff):
     diffs = np.diff(apex_list)
@@ -61,14 +55,6 @@ def peakSelector(df_hist, slope, frequency, apex_massdiff, apex_points):
     # Mark apex bins
     df_hist['apex'] = df_hist.apply(lambda x: 1 if (x['slope1']<0 and x['previous']>0)
                                                 else 0, axis = 1)
-    
-    # df_hist['peak'] = df_hist.apply(lambda x: 1 if (abs(x['slope1'])>slope and x['slope1']>0 and abs(x['previous'])<slope) #beginning
-    #                                         or (abs(x['slope1'])>slope and x['slope1']<0 and abs(x['next'])<slope) #end
-    #                                         else 0, axis = 1)
-    # df_hist['slope_threshold'] = df_hist.apply(lambda x: 1 if abs(x['slope1'])>slope
-    #                                                    or (abs(x['next']) > slope and x['apex'] == 1)
-    #                                                    or (abs(x['previous']) > slope and x['next_apex'] == 1)
-    #                                                    else 0, axis = 1) #what if apex below threshold
     
     ### TEST ###
     df_hist['peak_begin'] = df_hist.apply(lambda x: 1 if (abs(x['slope1'])>slope and x['slope1']>0 and abs(x['previous'])<slope) #beginning
@@ -118,34 +104,6 @@ def peakSelector(df_hist, slope, frequency, apex_massdiff, apex_points):
                 if 1 in peak_df['apex'].value_counts().index and peak_df['apex'].value_counts()[1] > 1: #more than one potential apex
                     #apex_bin_list.extend(multipleApex(list(peak_df['midpoint'].loc[peak_df['apex'] == 1]), apex_massdiff))
                     apex_bin_list.extend(firstAndLastApex(list(peak_df['midpoint'].loc[peak_df['apex'] == 1])))
-    
-    ############
-    
-    # ### FILTER PEAKS ###
-    # # def _unique_col(s):
-    # #     a = s.to_numpy() # s.values (pandas<0.24)
-    # #     return (a[0] == a).all()
-    # grouped_hist = df_hist.groupby((df_hist['slope_threshold'].shift() != df_hist['slope_threshold']).cumsum())
-    # #grouped_hist = df_hist.groupby((df_hist['slope_threshold'].shift() != df_hist['slope_threshold']).cumsum()).filter(lambda x: x['slope_threshold'].max()>0)
-    # recovered = 0
-    # for position, peak in grouped_hist:
-    #     peak_df = peak
-    #     #if peak_df['slope_threshold'].any() != 0: #peak
-        
-    #     if 1 in peak_df['apex'].value_counts().index and peak_df['apex'].value_counts()[1] >= 1: #at least one apex
-    #         recovered = recovered
-    #         #if peak_df['slope_threshold'].any() != 0 or (0 in peak_df['slope_threshold'].value_counts() and peak_df['slope_threshold'].value_counts()[0] <= peak_df['apex'].value_counts()[1]): # allow for apex(es) to be below threshold
-    #         if peak_df['slope_threshold'].any() != 0:
-    #             recovered = recovered 
-    #             if 1 in peak_df['peak'].value_counts().index and peak_df['peak'].value_counts()[1] == 2: #beginning and end
-    #                 recovered = recovered + 1
-    #                 for i in peak_df['midpoint'].loc[peak_df['apex'] == 1]:
-    #                     print(float(i))
-    #             #else:
-    #                 #print(peak_df['midpoint'].loc[peak_df['apex'] == 1])
-    #                 #print(peak_df['peak'].value_counts())
-                    
-    # print(recovered)
 
     ### CALCULATE APEX ###
     apex_list = []
