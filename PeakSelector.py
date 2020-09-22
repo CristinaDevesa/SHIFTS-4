@@ -31,6 +31,9 @@ def readHistogram(infile):
     df_hist.reset_index(drop=True, inplace=True)
     return df_hist
 
+# for testing purposes: groups = dict(list(grouped_hist))
+# example problem group: 776
+
 def multipleApex(apex_list, apex_massdiff):
     diffs = np.diff(apex_list)
     new_apex_list = []
