@@ -45,7 +45,7 @@ def firstAndLastApex(apex_list):
     new_apex_list.append(apex_list[-1])
     return new_apex_list
 
-def peakSelector(df_hist, slope, frequency, apex_massdiff, apex_points):
+def peakSelector(df_hist, slope, frequency, apex_points):
     
     ### MARK BINS ###
     
@@ -237,7 +237,7 @@ def main(args):
     slope = float(config._sections['PeakSelector']['slope'])
     frequency = int(config._sections['PeakSelector']['frequency'])
     apex_points = int(config._sections['PeakSelector']['apex_points'])
-    apex_massdiff = float(config._sections['PeakSelector']['apex_massdiff'])
+    #apex_massdiff = float(config._sections['PeakSelector']['apex_massdiff'])
     
     # Read DM Histogram
     logging.info("Reading input file...")
@@ -253,7 +253,7 @@ def main(args):
     # df_hist.reset_index(drop=True, inplace=True)
     # df_hist = parseInterval(df_hist)
     # apex_list = peakApex(df_hist, apex_points)
-    apex_list = peakSelector(df_hist, slope, frequency, apex_massdiff, apex_points)
+    apex_list = peakSelector(df_hist, slope, frequency, apex_points)
     apex_info = str(len(apex_list)) + " peaks"
     logging.info(apex_info)
     
@@ -286,7 +286,7 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--slope', help='Threshold for slope of DM peak')
     parser.add_argument('-f', '--frequency', help='Threshold for number of PSMs')
     parser.add_argument('-p', '--apex_points', help='Number of points (bins) to use for apex calculation')
-    parser.add_argument('-a', '--apex_massdiff', help='Threshold for distance between apexes')
+    #parser.add_argument('-a', '--apex_massdiff', help='Threshold for distance between apexes')
 
     parser.add_argument('-v', dest='verbose', action='store_true', help="Increase output verbosity")
     args = parser.parse_args()
