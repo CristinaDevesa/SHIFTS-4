@@ -145,7 +145,7 @@ def main(args):
     Main function
     '''
     # Variables
-    ppm_max = abs(config._sections['PeakAssignator']['ppm_max'])
+    ppm_max = abs(int(config._sections['PeakAssignator']['ppm_max']))
     col_CalDeltaMH = config._sections['PeakAssignator']['caldeltamh_column']
     col_ClosestPeak = config._sections['PeakAssignator']['closestpeak_column']
     col_Peak = config._sections['PeakAssignator']['peak_column']
