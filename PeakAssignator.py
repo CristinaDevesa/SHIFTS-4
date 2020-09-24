@@ -76,14 +76,15 @@ def closest_peak(apex_list, delta_MH):
     return peak
 
     
-def find_orphans(ppm_max, peak, delta_MH, peak_label, orphan_label):
+def find_orphans(ppm_max, theo_mass, peak, delta_MH, peak_label, orphan_label):
     '''
     Identify orphans and peaks
     '''
     # window = float(nsigma) * fwhm / 2
     distance = abs(peak - delta_MH)
+    distance_ppm = (distance / theo_mass) * 1e6
     #max_distance = abs(float(nsigma) * fwhm / 2)
-    if distance <= ppm_max:
+    if distance_ppm <= ppm_max:
         ID = peak_label 
     else:
         ID = orphan_label
@@ -100,7 +101,7 @@ def find_orphans(ppm_max, peak, delta_MH, peak_label, orphan_label):
 #     return deltamod
 
 def bin_operations(df, apex_list, ppm_max, peak_label, orphan_label,
-                   col_ClosestPeak, col_CalDeltaMH, col_Peak, col_DM):
+                   col_ClosestPeak, col_CalDeltaMH, col_Peak, col_DM, col_TheoMass):
     '''
     Main function that handles the operations by BIN
     '''
@@ -111,7 +112,7 @@ def bin_operations(df, apex_list, ppm_max, peak_label, orphan_label,
     df[col_ClosestPeak] = df.apply(lambda x: closest_peak(apex_list, x[col_CalDeltaMH]), axis = 1)
 
     # identify orphans
-    df[col_Peak] = df.apply(lambda x: find_orphans(ppm_max, x[col_ClosestPeak], x[col_CalDeltaMH], peak_label, orphan_label), axis = 1)
+    df[col_Peak] = df.apply(lambda x: find_orphans(ppm_max, x[col_TheoMass], x[col_ClosestPeak], x[col_CalDeltaMH], peak_label, orphan_label), axis = 1)
     df[col_Peak] = df[col_Peak].astype('category')
     
     # calculate FDR
@@ -146,6 +147,7 @@ def main(args):
     '''
     # Variables
     ppm_max = abs(int(config._sections['PeakAssignator']['ppm_max']))
+    col_TheoMass = config._sections['PeakAssignator']['theomass_column']
     col_CalDeltaMH = config._sections['PeakAssignator']['caldeltamh_column']
     col_ClosestPeak = config._sections['PeakAssignator']['closestpeak_column']
     col_Peak = config._sections['PeakAssignator']['peak_column']
@@ -194,7 +196,8 @@ def main(args):
                                                                    repeat(col_ClosestPeak),
                                                                    repeat(col_CalDeltaMH),
                                                                    repeat(col_Peak),
-                                                                   repeat(col_DM)) 
+                                                                   repeat(col_DM),
+                                                                   repeat(col_TheoMass)) 
     df = pd.concat(df)
     #logging.info("calculate gobal FDR")
     #df = get_global_FDR(df, args.xcorr)
