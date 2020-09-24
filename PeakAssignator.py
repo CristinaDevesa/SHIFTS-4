@@ -33,7 +33,7 @@ pd.options.mode.chained_assignment = None  # default='warn'
 ###################
 # Local functions #
 ###################
-def concatInfiles(infile, fwhm_fname):
+def concatInfiles(infile):
     '''    
     Concat input files...
     adding Experiment column (dirname of input file), and adding a FWHM columns by Experiment
@@ -59,8 +59,8 @@ def concatInfiles(infile, fwhm_fname):
     # add fwhm column
     #fwhm_file = "{}/{}".format(foldername, fwhm_fname)
     #fwhm = _extract_FWHM(fwhm_file)
-    fwhm = _extract_FWHM(fwhm_fname)
-    df['FWHM'] = float(fwhm)
+    #fwhm = _extract_FWHM(fwhm_fname)
+    #df['FWHM'] = float(fwhm)
     # assign type to categorical columns
     df['Experiment'] = df['Experiment'].astype('category')
     df['Filename'] = df['Filename'].astype('category')
@@ -76,14 +76,14 @@ def closest_peak(apex_list, delta_MH):
     return peak
 
     
-def find_orphans(nsigma, fwhm, peak, delta_MH, peak_label, orphan_label):
+def find_orphans(ppm_max, peak, delta_MH, peak_label, orphan_label):
     '''
     Identify orphans and peaks
     '''
     # window = float(nsigma) * fwhm / 2
     distance = abs(peak - delta_MH)
-    max_distance = abs(float(nsigma) * fwhm / 2)
-    if distance <= max_distance:
+    #max_distance = abs(float(nsigma) * fwhm / 2)
+    if distance <= ppm_max:
         ID = peak_label 
     else:
         ID = orphan_label
@@ -99,7 +99,7 @@ def find_orphans(nsigma, fwhm, peak, delta_MH, peak_label, orphan_label):
 #         deltamod = col_ClosestPeak
 #     return deltamod
 
-def bin_operations(df, apex_list, nsigma, peak_label, orphan_label,
+def bin_operations(df, apex_list, ppm_max, peak_label, orphan_label,
                    col_ClosestPeak, col_CalDeltaMH, col_Peak, col_DM):
     '''
     Main function that handles the operations by BIN
@@ -111,7 +111,7 @@ def bin_operations(df, apex_list, nsigma, peak_label, orphan_label,
     df[col_ClosestPeak] = df.apply(lambda x: closest_peak(apex_list, x[col_CalDeltaMH]), axis = 1)
 
     # identify orphans
-    df[col_Peak] = df.apply(lambda x: find_orphans(nsigma, x['FWHM'], x[col_ClosestPeak], x[col_CalDeltaMH], peak_label, orphan_label), axis = 1)
+    df[col_Peak] = df.apply(lambda x: find_orphans(ppm_max, x[col_ClosestPeak], x[col_CalDeltaMH], peak_label, orphan_label), axis = 1)
     df[col_Peak] = df[col_Peak].astype('category')
     
     # calculate FDR
@@ -145,7 +145,7 @@ def main(args):
     Main function
     '''
     # Variables
-    nsigma = config._sections['PeakAssignator']['nsigma']
+    ppm_max = abs(config._sections['PeakAssignator']['ppm_max'])
     col_CalDeltaMH = config._sections['PeakAssignator']['caldeltamh_column']
     col_ClosestPeak = config._sections['PeakAssignator']['closestpeak_column']
     col_Peak = config._sections['PeakAssignator']['peak_column']
@@ -177,7 +177,7 @@ def main(args):
     logging.info("adding Experiment column (dirname of input file),")
     logging.info("and adding a FWHM column by Experiment")
     with concurrent.futures.ProcessPoolExecutor(max_workers=args.n_workers) as executor:            
-        df = executor.map(concatInfiles, infiles, repeat(args.fwhm_filename))
+        df = executor.map(concatInfiles, infiles)
     df = pd.concat(df)
     df.reset_index(drop=True, inplace=True)
  
@@ -188,7 +188,7 @@ def main(args):
     logging.info("parallel the operations by BIN")
     with concurrent.futures.ProcessPoolExecutor(max_workers=args.n_workers) as executor:        
         df = executor.map(bin_operations, list(df.groupby("bin")), repeat(apex_list),
-                                                                   repeat(nsigma),
+                                                                   repeat(ppm_max),
                                                                    repeat(peak_label),
                                                                    repeat( orphan_label),
                                                                    repeat(col_ClosestPeak),
@@ -240,12 +240,12 @@ if __name__ == '__main__':
     
     parser.add_argument('-i',  '--infile', required=True, help='Input file with the list of files that contains the peak picking')
     parser.add_argument('-a',  '--appfile', required=True, help='File with the apex list of Mass')
-    parser.add_argument('-f',  '--fwhm_filename', default='MAD_and_FWHM_calculations.txt', help='File name with the FWHM value (default: %(default)s)')    
+    #parser.add_argument('-f',  '--fwhm_filename', default='MAD_and_FWHM_calculations.txt', help='File name with the FWHM value (default: %(default)s)')    
     parser.add_argument('-c', '--config', default=defaultconfig, help='Path to custom config.ini file')
     
     #parser.add_argument('-mn', '--mindelta', help='Minimum Delta Mass (default: %(default)s)')
     #parser.add_argument('-mx', '--maxdelta', help='Maximum Delta Mass (default: %(default)s)')
-    parser.add_argument('-s',  '--nsigma', help='Coefficient of Sigma (default: %(default)s)')
+    parser.add_argument('-p',  '--ppm', help='Maximum ppm difference for peak assignation')
 
     parser.add_argument('-w',  '--n_workers', type=int, default=4, help='Number of threads/n_workers (default: %(default)s)')    
     parser.add_argument('-v', dest='verbose', action='store_true', help="Increase output verbosity")
@@ -260,8 +260,8 @@ if __name__ == '__main__':
     #if args.maxdelta is not None:
         #config.set('PeakAssignator', 'maxdelta', str(args.maxdelta))
         #config.set('Logging', 'create_ini', '1')
-    if args.nsigma is not None:
-        config.set('PeakAssignator', 'nsigma', str(args.nsigma))
+    if args.ppm is not None:
+        config.set('PeakAssignator', 'ppm_max', str(args.ppm))
         config.set('Logging', 'create_ini', '1')
     # if something is changed, write a copy of ini
     if config.getint('Logging', 'create_ini') == 1:
