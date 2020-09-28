@@ -149,7 +149,7 @@ def main(args):
     '''
     # Variables
     ppm_max = abs(float(config._sections['PeakAssignator']['ppm_max']))
-    col_TheoMass = config._sections['PeakAssignator']['theomass_column']
+    col_TheoMass = config._sections['PeakAssignator']['theomh_column']
     col_CalDeltaMH = config._sections['PeakAssignator']['caldeltamh_column']
     col_ClosestPeak = config._sections['PeakAssignator']['closestpeak_column']
     col_Peak = config._sections['PeakAssignator']['peak_column']
