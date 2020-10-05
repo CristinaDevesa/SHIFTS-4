@@ -33,7 +33,7 @@ pd.options.mode.chained_assignment = None  # default='warn'
 ###################
 # Local functions #
 ###################
-def concatInfiles(infile):
+def concatInfiles(peakpickingfile):
     '''    
     Concat input files...
     adding Experiment column (dirname of input file), and adding a FWHM columns by Experiment
@@ -50,12 +50,12 @@ def concatInfiles(infile):
         
     # read input file
     # use high precision with the floats
-    df = pd.read_csv(infile, sep="\t", float_precision='high')    
+    df = pd.read_csv(peakpickingfile, sep="\t", float_precision='high')    
     # add folder name into column
-    foldername = os.path.dirname(infile)
+    foldername = os.path.dirname(peakpickingfile)
     df['Experiment'] = foldername
     # add filename column
-    df['Filename'] = os.path.basename(infile)
+    df['Filename'] = os.path.basename(peakpickingfile)
     # add fwhm column
     #fwhm_file = "{}/{}".format(foldername, fwhm_fname)
     #fwhm = _extract_FWHM(fwhm_file)
@@ -158,12 +158,12 @@ def main(args):
     peak_label = config._sections['PeakAssignator']['peak_label']
     orphan_label = config._sections['PeakAssignator']['orphan_label']
     
-    logging.info("get the list of files with the inputs")
-    with open(args.infile) as f:
-        infiles = f.readlines()
-    # you may also want to remove whitespace characters like `\n` at the end of each line
-    infiles = [x.strip() for x in infiles] 
-    logging.debug(infiles)
+    # logging.info("get the list of files with the inputs")
+    # with open(args.infile) as f:
+    #     infiles = f.readlines()
+    # # you may also want to remove whitespace characters like `\n` at the end of each line
+    # infiles = [x.strip() for x in infiles] 
+    # logging.debug(infiles)
     
      # read apex list
     def _extract_ApexList(file):
@@ -178,13 +178,14 @@ def main(args):
     #apex_list = _extract_ApexList(apex_file)
     apex_list = _extract_ApexList(args.appfile)
 
-    logging.info("concat input files...")
-    logging.info("adding Experiment column (dirname of input file),")
-    logging.info("and adding a FWHM column by Experiment")
-    with concurrent.futures.ProcessPoolExecutor(max_workers=args.n_workers) as executor:            
-        df = executor.map(concatInfiles, infiles)
-    df = pd.concat(df)
-    df.reset_index(drop=True, inplace=True)
+    #logging.info("concat input files...")
+    #logging.info("adding Experiment column (dirname of input file),")
+    #logging.info("and adding a FWHM column by Experiment")
+    # with concurrent.futures.ProcessPoolExecutor(max_workers=args.n_workers) as executor:            
+    #     df = executor.map(concatInfiles, infiles)
+    # df = pd.concat(df)
+    # df.reset_index(drop=True, inplace=True)
+    df = pd.read_csv(args.infile, sep="\t", float_precision='high')
  
     logging.info("create a column with the bin")
     df['bin'] = df[col_CalDeltaMH].astype(str).str.extract(r'^([^\.]*)')
@@ -245,7 +246,7 @@ if __name__ == '__main__':
         
     defaultconfig = os.path.join(os.path.dirname(__file__), "config/PeakModeller.ini")
     
-    parser.add_argument('-i',  '--infile', required=True, help='Input file with the list of files that contains the peak picking')
+    parser.add_argument('-i',  '--infile', required=True, help='Input file with the peak picking')
     parser.add_argument('-a',  '--appfile', required=True, help='File with the apex list of Mass')
     #parser.add_argument('-f',  '--fwhm_filename', default='MAD_and_FWHM_calculations.txt', help='File name with the FWHM value (default: %(default)s)')    
     parser.add_argument('-c', '--config', default=defaultconfig, help='Path to custom config.ini file')
