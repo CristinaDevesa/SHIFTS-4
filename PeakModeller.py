@@ -36,16 +36,16 @@ def concatInfiles(infile):
     '''
     
     # read input file
-    df = pd.read_csv(infile[1], sep="\t", float_precision='high')
-    df['Experiment'] = infile[0]
-    df['Filename'] = infile[1]
+    df = pd.read_csv(infile, sep="\t", float_precision='high')
+    #df['Experiment'] = infile[0]
+    df['Filename'] = infile
     # add folder name into column
     #foldername = os.path.dirname(infile[0])
     #df['Experiment'] = foldername
     # add filename column
     #df['Filename'] = os.path.basename(infile)
     # assign type to categorical columns
-    df['Experiment'] = df['Experiment'].astype('category')
+    #df['Experiment'] = df['Experiment'].astype('category')
     df['Filename'] = df['Filename'].astype('category')
     return df
 
@@ -179,7 +179,7 @@ def main(args):
     logging.info("Reading input file list...")
     with open(args.infile) as f:
         infiles = f.readlines()
-    infiles = [x.strip().split("\t") for x in infiles] # remove whitespace
+    infiles = [x.strip() for x in infiles] # remove whitespace
     
     logging.info("Concat input files...")
     with concurrent.futures.ProcessPoolExecutor(max_workers=args.n_workers) as executor:            
