@@ -76,7 +76,7 @@ def getTheoMZ(df, mzcolumn, zcolumn, seqcolumn):
                 # TODO
             if aa.lower() in MODs:
                 total_aas += float(MODs[aa.lower()])
-        MH = total_aas - charge*m_proton
+        MH = total_aas - (charge-1)*m_proton
         #MZ = (total_aas + int(charge)*m_proton) / int(charge)
         MZ = total_aas / int(charge)
         return MZ, MH
