@@ -32,7 +32,6 @@ pd.options.mode.chained_assignment = None  # default='warn'
 def concatInfiles(infile):
     '''    
     Concat input files...
-    infile is a list where the first element is the Experiment name and the second element is the path
     '''
     
     # read input file
@@ -225,6 +224,7 @@ if __name__ == '__main__':
     
     parser.add_argument('-i', '--infile', required=True, help='Input file with the peak file(s) to be filtered')
     parser.add_argument('-c', '--config', default=defaultconfig, help='Path to custom config.ini file')
+    # TODO: output file path
 
     parser.add_argument('-b', '--bins', help='Width of the bins')
     parser.add_argument('-p', '--slope_points', help='Number of points (bins) to use for slope calculation')
