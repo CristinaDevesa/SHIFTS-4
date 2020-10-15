@@ -28,6 +28,13 @@ import sys
 # Local functions #
 ###################
 
+def read_experiments(experiments_table):
+    exp_df = pd.read_csv(experiments_table, sep="\t", float_precision='high')
+    exp_groups = exp_df.groupby(by = exp_df.columns[0], axis = 0)
+    for position, exp in exp_groups:
+        #TODO: read filepath or everything in folder
+    return groups
+
 def get_spire_FDR(df, score_column, xcorr_type): #TODO: we don't have xcorr_type, we have recom_data, take out column names
     #This will be for the group of scans in a peak that are contained within 
     #one recom-assignated theoretical deltamass. Then, when we do peak_FDR, we
@@ -241,6 +248,7 @@ if __name__ == '__main__':
     defaultconfig = os.path.join(os.path.dirname(__file__), "config/PeakModeller.ini")
     
     parser.add_argument('-i',  '--infile', required=True, help='Input feather file with the peak assignation')
+    parser.add_argument('-e',  '--experiment_table', required=True, help='Tab-separated file containing experiment names and file paths')
     
     parser.add_argument('-s',  '--score_column', help='Name of column with score for FDR calculation')
     parser.add_argument('-f',  '--fdr_filter', help='FDR value to filter by')
