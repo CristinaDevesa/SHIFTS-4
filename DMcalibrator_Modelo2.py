@@ -205,7 +205,9 @@ def getDMcal(df, mzcolumn, calmzcolumn, zcolumn):
         df.insert(df.columns.get_loc(mzcolumn)+1,
                   'dm_mh',
                   np.nan)
-    df['dm_mh'] = df['dm_mz'] * df[zcolumn] - (df[zcolumn] * mass_config.getfloat('Masses', 'm_proton'))
+    #df['dm_mh'] = df['dm_mz'] * df[zcolumn] - (df[zcolumn] * mass_config.getfloat('Masses', 'm_proton'))
+    #df['dm_mh'] = df.apply(lambda x: (x['dm_mz'] * x[zcolumn] - (x[zcolumn] * m_proton)) if (x['dm_mz'] >= 0) else (x['dm_mz'] * x[zcolumn] + (x[zcolumn] * m_proton)), axis = 1)
+    df['dm_mh'] = df['dm_mz'] * df[zcolumn]
     # After calibration
     if 'cal_dm_mz' not in df:
         df.insert(df.columns.get_loc(calmzcolumn)+1,
@@ -216,7 +218,9 @@ def getDMcal(df, mzcolumn, calmzcolumn, zcolumn):
         df.insert(df.columns.get_loc(calmzcolumn)+1,
                   'cal_dm_mh',
                   np.nan)
-    df['cal_dm_mh'] = (df['cal_dm_mz'] * df[zcolumn]) - (df[zcolumn] * mass_config.getfloat('Masses', 'm_proton'))
+    #df['cal_dm_mh'] = (df['cal_dm_mz'] * df[zcolumn]) - (df[zcolumn] * mass_config.getfloat('Masses', 'm_proton'))
+    #df['cal_dm_mh'] = df.apply(lambda x: (x['cal_dm_mz'] * x[zcolumn] - (x[zcolumn] * m_proton)) if (x['cal_dm_mz'] >= 0) else (x['cal_dm_mz'] * x[zcolumn] + (x[zcolumn] * m_proton)), axis = 1)
+    df['cal_dm_mh'] = df['cal_dm_mz'] * df[zcolumn]
     return df
 
 def labelTargetDecoy(df, proteincolumn, decoyprefix):
