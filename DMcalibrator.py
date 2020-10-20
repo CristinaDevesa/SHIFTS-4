@@ -213,7 +213,7 @@ def getDMcal(df, mzcolumn, calmzcolumn, zcolumn):
         df.insert(df.columns.get_loc(calmzcolumn)+1,
                   'cal_dm_mh',
                   np.nan)
-    df['cal_dm_mh'] = df['cal_dm_mz'] * df[zcolumn]
+    df['cal_dm_mh'] = (df['cal_dm_mz'] * df[zcolumn]) - ((df[zcolumn]-1) * mass_config.getfloat('Masses', 'm_proton'))
     return df
 
 def labelTargetDecoy(df, proteincolumn, decoyprefix):
