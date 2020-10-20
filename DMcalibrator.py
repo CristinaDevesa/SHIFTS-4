@@ -202,7 +202,7 @@ def getDMcal(df, mzcolumn, calmzcolumn, zcolumn):
         df.insert(df.columns.get_loc(mzcolumn)+1,
                   'dm_mh',
                   np.nan)
-    df['dm_mh'] = df['dm_mz'] * df[zcolumn]
+    df['dm_mh'] = df['dm_mz'] * df[zcolumn] - ((df[zcolumn]-1) * mass_config.getfloat('Masses', 'm_proton'))
     # After calibration
     if 'cal_dm_mz' not in df:
         df.insert(df.columns.get_loc(calmzcolumn)+1,
