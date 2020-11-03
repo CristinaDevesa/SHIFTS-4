@@ -47,15 +47,28 @@ def make_groups(df, groups):
     Add group column to input file with the peak assignation.
     '''
     def _match_file(groups, filename):
-        if filename in groups['Filename'].unique():
-            group = df.loc[df['Filename'] == filename]['Experiment']
-            group.reset_index(drop=True, inplace=True)
-            group = group[0]
+        # if filename in groups['Filename'].unique():
+            # group = df.loc[df['Filename'] == filename]['Experiment']
+            # group.reset_index(drop=True, inplace=True)
+            # group = group[0]
+        # if filename in [x for v in group_dict.values() for x in v]:
+        if filename in group_dict:
+            group = group_dict.get(filename)[0]
         else:
             group = 'N/A'
         return group
     df['Experiment'] = 'N/A'
-    df['Experiment'] = df.apply(lambda x: _match_file(groups, x['Filename']), axis = 1)
+    #df['Experiment'] = df.apply(lambda x: _match_file(groups, x['Filename']), axis = 1)
+    ###
+    group_dict = {}
+    for x in range(len(groups)):
+        currentid = groups.iloc[x,1]
+        currentvalue = groups.iloc[x,0]
+        group_dict.setdefault(currentid, [])
+        group_dict[currentid].append(currentvalue)
+    df['Experiment'] = np.vectorize(_match_file)(group_dict, df['Filename'])
+    ###
+    #df['Experiment'] = _match_file(groups, df['Filename'])
     if df['Experiment'].value_counts()['N/A'] > 0:
         logging.info('Warning: ' + str(df['Experiment'].value_counts()['N/A']) + ' rows could not be assigned to an experiment!') # They will all be grouped together for FDR calculations
     return df
@@ -220,6 +233,7 @@ def main(args):
     # target_filter = config._sections['PeakFDRer']['target_filter']
     
     # Read input file
+    logging.info('Read input file')
     #df = pd.read_feather(args.infile)
     df = pd.read_csv(args.infile, sep="\t", float_precision='high')
     
@@ -227,7 +241,7 @@ def main(args):
     groups = read_experiments(args.experiment_table)
     df = make_groups(df, groups)
     
-    logging.info("parallel the operations by BIN")
+    logging.info("Parallel the operations by BIN")
     with concurrent.futures.ProcessPoolExecutor(max_workers=args.n_workers) as executor:        
         df = executor.map(bin_operations, list(df.groupby('bin')), repeat(score_column),
                                                                    repeat(recom_data), 
