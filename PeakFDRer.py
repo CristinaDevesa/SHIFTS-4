@@ -29,11 +29,35 @@ import sys
 ###################
 
 def read_experiments(experiments_table):
-    exp_df = pd.read_csv(experiments_table, sep="\t", float_precision='high')
-    exp_groups = exp_df.groupby(by = exp_df.columns[0], axis = 0)
-    for position, exp in exp_groups:
+    '''
+    Read input file containing groups and filenames in tab-separated format.
+    '''
+    df = pd.read_csv(experiments_table, sep="\t", names=['Experiment', 'Filename'])
+    df['Experiment'] = df['Experiment'].astype('string')
+    df['Filename'] = df['Filename'].astype('string')
+    if df['Filename'].duplicated().any(): # Check no repeats
+        sys.exit("Experiments table contains repeat values in the filename column")
+    #exp_groups = exp_df.groupby(by = exp_df.columns[0], axis = 0)
+    #for position, exp in exp_groups:
         #TODO: read filepath or everything in folder
-    return groups
+    return df
+
+def make_groups(df, groups):
+    '''
+    Add group column to input file with the peak assignation.
+    '''
+    def _match_file(groups, filename):
+        if filename in groups['Filename'].unique():
+            group = df.loc[df['Filename'] == filename]['Experiment']
+            group.reset_index(drop=True, inplace=True)
+            group = group[0]
+        else:
+            group = 'N/A'
+        return group
+    df['Experiment'] = df.apply(lambda x: _match_file(groups, x['Filename']), axis = 1)
+    if df['Experiment'].value_counts()['N/A'] > 0:
+        logging.info('Warning: ' + str(df['Experiment'].value_counts()['N/A']) + ' rows could not be assigned to an experiment!') # They will all be grouped together for FDR calculations
+    return df
 
 def get_spire_FDR(df, score_column, xcorr_type): #TODO: we don't have xcorr_type, we have recom_data, take out column names
     #This will be for the group of scans in a peak that are contained within 
@@ -153,7 +177,7 @@ def get_global_FDR(df, score_column, recom_data):
     df['GlobalFDR'] = df['Global_Rank_D']/df['Global_Rank_T']
     return df
 
-def filtering(df, fdr_filter, target_filter):
+def filtering(df, fdr_filter, target_filter): # This goes on a separate module now
     if target_filter: # =! 0
         df[df['Label'] == 'Target']
     if fdr_filter: # =! 0
@@ -171,8 +195,8 @@ def bin_operations(df, score_column, recom_data, peak_label, closestpeak_column)
     df = get_peak_FDR(df, score_column, recom_data, closestpeak_column)
     
     # calculate spire FDR
-    if recom_data: #recom_data =! 0
-    df = get_spire_FDR(df, score_column, recom_data)
+    #if recom_data: #recom_data =! 0
+    #df = get_spire_FDR(df, score_column, recom_data)
     
     return df
 
@@ -190,27 +214,39 @@ def main(args):
     peak_label = config._sections['PeakAssignator']['peak_label']
     col_CalDeltaMH = config._sections['PeakAssignator']['caldeltamh_column']
     closestpeak_column = config._sections['PeakAssignator']['closestpeak_column']
-    fdr_filter = config._sections['PeakFDRer']['fdr_filter']
-    target_filter = config._sections['PeakFDRer']['target_filter']
+    # fdr_filter = config._sections['PeakFDRer']['fdr_filter']
+    # target_filter = config._sections['PeakFDRer']['target_filter']
     
-    #Read input file
+    # Read input file
     df = pd.read_feather(args.infile)
+    
+    # Add groups
+    groups = read_experiments(args.experiment_table)
+    df = make_groups(df, groups)
     
     logging.info("parallel the operations by BIN")
     with concurrent.futures.ProcessPoolExecutor(max_workers=args.n_workers) as executor:        
-        df = executor.map(bin_operations, list(df.groupby("bin")), repeat(score_column),
+        df = executor.map(bin_operations, list(df.groupby('bin')), repeat(score_column),
                                                                    repeat(recom_data), 
                                                                    repeat(peak_label),
                                                                    repeat(closestpeak_column)) 
     df = pd.concat(df)
+    
     logging.info("Calculate gobal FDR")
-    df = get_global_FDR(df, score_column, recom_data)
+    # df = get_global_FDR(df, score_column, recom_data)
+    with concurrent.futures.ProcessPoolExecutor(max_workers=args.n_workers) as executor:
+        df = executor.map(get_global_FDR, list(df.groupby('Experiment')), repeat(score_column),
+                                                                          repeat(recom_data))
+    
     logging.info("Sort by DeltaMax cal")
     df.sort_values(by=[col_CalDeltaMH], inplace=True)
-    
-    # Filtering
-    df = filtering(df, fdr_filter, target_filter)
     df.reset_index(drop=True, inplace=True)
+    
+    # TODO: groups?????
+    
+    # Filtering # This goes on a separate module now
+    # df = filtering(df, fdr_filter, target_filter)
+    # df.reset_index(drop=True, inplace=True)
 
     # d_h = df.head()
     # d_t = df.tail()
@@ -251,8 +287,8 @@ if __name__ == '__main__':
     parser.add_argument('-e',  '--experiment_table', required=True, help='Tab-separated file containing experiment names and file paths')
     
     parser.add_argument('-s',  '--score_column', help='Name of column with score for FDR calculation')
-    parser.add_argument('-f',  '--fdr_filter', help='FDR value to filter by')
-    parser.add_argument('-t',  '--target_filter', help='Filter targets, 0=no 1=yes')
+    #parser.add_argument('-f',  '--fdr_filter', help='FDR value to filter by')
+    #parser.add_argument('-t',  '--target_filter', help='Filter targets, 0=no 1=yes')
     parser.add_argument('-r',  '--recom_data', help='Score for FDR calculation: 0=Xcorr, 1=cXcorr (default: %(default)s)')
 
     parser.add_argument('-w',  '--n_workers', type=int, default=4, help='Number of threads/n_workers (default: %(default)s)')    
@@ -265,12 +301,12 @@ if __name__ == '__main__':
     if args.score_column is not None:
         config.set('PeakFDRer', 'score_column', str(args.score_column))
         config.set('Logging', 'create_ini', '1')
-    if args.fdr_filter is not None:
-        config.set('PeakFDRer', 'fdr_filter', str(args.fdr_filter))
-        config.set('Logging', 'create_ini', '1')
-    if args.target_filter is not None:
-        config.set('PeakFDRer', 'target_filter', str(args.target_filter))
-        config.set('Logging', 'create_ini', '1')
+    # if args.fdr_filter is not None:
+    #     config.set('PeakFDRer', 'fdr_filter', str(args.fdr_filter))
+    #     config.set('Logging', 'create_ini', '1')
+    # if args.target_filter is not None:
+    #     config.set('PeakFDRer', 'target_filter', str(args.target_filter))
+    #     config.set('Logging', 'create_ini', '1')
     if args.recom_data is not None:
         config.set('PeakFDRer', 'recom_data', str(args.recom_data))
         config.set('Logging', 'create_ini', '1')
