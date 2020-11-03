@@ -59,7 +59,6 @@ def make_groups(df, groups):
         return group
     df['Experiment'] = 'N/A'
     #df['Experiment'] = df.apply(lambda x: _match_file(groups, x['Filename']), axis = 1)
-    ###
     group_dict = {}
     for x in range(len(groups)):
         currentid = groups.iloc[x,1]
@@ -67,8 +66,6 @@ def make_groups(df, groups):
         group_dict.setdefault(currentid, [])
         group_dict[currentid].append(currentvalue)
     df['Experiment'] = np.vectorize(_match_file)(group_dict, df['Filename'])
-    ###
-    #df['Experiment'] = _match_file(groups, df['Filename'])
     if 'N/A' in df['Experiment'].unique():
         logging.info('Warning: ' + str(df['Experiment'].value_counts()['N/A']) + ' rows could not be assigned to an experiment!') # They will all be grouped together for FDR calculations
     return df
@@ -125,23 +122,47 @@ def get_peak_FDR(df, score_column, col_Peak, closestpeak_column, recom_data):
     grouped_peaks = peaks.groupby([closestpeak_column]) # group by ClosestPeak
     # df.get_group("group")
     #grouped_peaks.groups # group info
-    for group in grouped_peaks:
-        group_index = group[1].index.values
-        df.loc[group_index] # repeat steps of local_FDR
-        # sort bin
-        # if recom_data == 0: # by Comet Xcorr
-        #     df.loc[group_index].sort_values(by=['Xcor', 'Label'], inplace=True)
-        # else: # by Comet cXcorr
-        #     df.loc[group_index].sort_values(by=['CorXcor', 'Label'], inplace=True) # TODO: Fix SHIFTS cXcorr
-        df.loc[group_index].sort_values(by=[score_column, 'Label'], inplace=True)
-        # count targets and decoys
-        df.loc[group_index]['Rank'] = df.loc[group_index].groupby('Label').cumcount()+1 # This column can be deleted later
-        df.loc[group_index]['Peak_Rank_T'] = np.where(df.loc[group_index]['Label']=='Target', df.loc[group_index]['Rank'], 0)
-        df.loc[group_index]['Peak_Rank_T'] = df.loc[group_index]['Peak_Rank_T'].replace(to_replace=0, method='ffill')
-        df.loc[group_index]['Peak_Rank_D'] = np.where(df.loc[group_index]['Label'] == 'Decoy', df.loc[group_index]['Rank'], 0)
-        df.loc[group_index]['Peak_Rank_D'] =  df.loc[group_index]['Peak_Rank_D'].replace(to_replace=0, method='ffill')
+    # for group in grouped_peaks:
+    #     group_index = group[1].index.values
+    #     df.loc[group_index] # repeat steps of local_FDR
+    #     # sort bin
+    #     # if recom_data == 0: # by Comet Xcorr
+    #     #     df.loc[group_index].sort_values(by=['Xcor', 'Label'], inplace=True)
+    #     # else: # by Comet cXcorr
+    #     #     df.loc[group_index].sort_values(by=['CorXcor', 'Label'], inplace=True) # TODO: Fix SHIFTS cXcorr
+    #     df.loc[group_index].sort_values(by=[score_column, 'Label'], inplace=True)
+    #     # count targets and decoys
+    #     df.loc[group_index]['Rank'] = df.loc[group_index].groupby('Label').cumcount()+1 # This column can be deleted later
+    #     df.loc[group_index]['Peak_Rank_T'] = np.where(df.loc[group_index]['Label']=='Target', df.loc[group_index]['Rank'], 0)
+    #     df.loc[group_index]['Peak_Rank_T'] = df.loc[group_index]['Peak_Rank_T'].replace(to_replace=0, method='ffill')
+    #     df.loc[group_index]['Peak_Rank_D'] = np.where(df.loc[group_index]['Label'] == 'Decoy', df.loc[group_index]['Rank'], 0)
+    #     df.loc[group_index]['Peak_Rank_D'] =  df.loc[group_index]['Peak_Rank_D'].replace(to_replace=0, method='ffill')
+    #     # calculate peak FDR
+    #     df.loc[group_index]['PeakFDR'] = df.loc[group_index]['Peak_Rank_D']/df.loc[group_index]['Peak_Rank_T']
+        
+    ###
+    def _peak_FDR(group, score_column):
+        group.sort_values(by=[score_column, 'Label'], inplace=True)
+        group['Rank'] = group.groupby('Label').cumcount()+1 # This column can be deleted later
+        group['Peak_Rank_T'] = np.where(group['Label']=='Target', group['Rank'], 0)
+        group['Peak_Rank_T'] = group['Peak_Rank_T'].replace(to_replace=0, method='ffill')
+        group['Peak_Rank_D'] = np.where(group['Label'] == 'Decoy', group['Rank'], 0)
+        group['Peak_Rank_D'] =  group['Peak_Rank_D'].replace(to_replace=0, method='ffill')
         # calculate peak FDR
-        df.loc[group_index]['PeakFDR'] = df.loc[group_index]['Peak_Rank_D']/df.loc[group_index]['Peak_Rank_T']
+        group['PeakFDR'] = group['Peak_Rank_D']/group['Peak_Rank_T']
+        return group
+    peaks_df = []
+    for group in grouped_peaks:
+        peak_df = _peak_FDR(group[1], score_column)
+        peaks_df.append(peak_df)
+    if len(peaks_df) > 0:
+        final_peaks_df = pd.concat(peaks_df)
+        # join with df
+        common_index = df.index.intersection(final_peaks_df.index)
+        common_columns = df.columns.intersection(final_peaks_df.columns)
+        df.loc[common_index, common_columns] = final_peaks_df.loc[common_index, common_columns]
+    ###
+    
     df.drop(['Rank'], axis = 1, inplace = True)
     return df
 
