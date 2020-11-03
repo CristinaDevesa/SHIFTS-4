@@ -254,7 +254,7 @@ def main(args):
     # d_t.to_csv("kk_tail.tsv", sep="\t")
     
 
-    logging.info("print output")
+    logging.info("Write output file")
     # https://towardsdatascience.com/the-best-format-to-save-pandas-data-414dca023e0d
     # begin:printHDF5
     # Note: Explote the Memory!!!
@@ -263,7 +263,10 @@ def main(args):
     # df.to_hdf('data.h5', key='df', mode='w')
     # end:printHDF5
     # df.to_csv('data.tsv', sep="\t", index=False)
-    df.to_feather('data.ftr')
+    
+    outfile = args.infile[:-4] + '_FDR.txt'
+    #df.to_feather(outfile)
+    df.to_csv(outfile, index=False, sep='\t', encoding='utf-8')
     
 
     
@@ -316,6 +319,8 @@ if __name__ == '__main__':
             config.write(newconfig)
 
     # logging debug level. By default, info level
+    log_file = args.infile[:-4] + '_FDR_log.txt'
+    log_file_debug = args.infile[:-4] + '_FDR_log_debug.txt'
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s - %(levelname)s - %(message)s',
