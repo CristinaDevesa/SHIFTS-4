@@ -172,6 +172,8 @@ def get_global_FDR(df, score_column, recom_data):
     '''
     Calculate global FDR
     '''
+    # get the EXPERIMENT value from the input tuple df=(experiment,df)
+    (experiment_value, df) = df[0], df[1]
     # sort by score
     # if recom_data == 0: # by Comet Xcorr
     #     df.sort_values(by=['Xcor', 'Label'], inplace=True)
@@ -202,6 +204,10 @@ def bin_operations(df, score_column, recom_data, peak_label, col_Peak, closestpe
     '''
     Main function that handles the operations by BIN
     '''
+    
+    # get the BIN value from the input tuple df=(bin,df)
+    (bin_value, df) = df[0], df[1]
+    
     # calculate local FDR
     df = get_local_FDR(df, score_column, recom_data)
     
@@ -255,8 +261,9 @@ def main(args):
     with concurrent.futures.ProcessPoolExecutor(max_workers=args.n_workers) as executor:
         df = executor.map(get_global_FDR, list(df.groupby('Experiment')), repeat(score_column),
                                                                           repeat(recom_data))
+    df = pd.concat(df)
     
-    logging.info("Sort by DeltaMax cal")
+    logging.info("Sort by DeltaMass cal")
     df.sort_values(by=[col_CalDeltaMH], inplace=True)
     df.reset_index(drop=True, inplace=True)
     
