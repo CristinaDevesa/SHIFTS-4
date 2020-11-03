@@ -69,7 +69,7 @@ def make_groups(df, groups):
     df['Experiment'] = np.vectorize(_match_file)(group_dict, df['Filename'])
     ###
     #df['Experiment'] = _match_file(groups, df['Filename'])
-    if df['Experiment'].value_counts()['N/A'] > 0:
+    if 'N/A' in df['Experiment'].unique():
         logging.info('Warning: ' + str(df['Experiment'].value_counts()['N/A']) + ' rows could not be assigned to an experiment!') # They will all be grouped together for FDR calculations
     return df
 
