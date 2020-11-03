@@ -54,6 +54,7 @@ def make_groups(df, groups):
         else:
             group = 'N/A'
         return group
+    df['Experiment'] = 'N/A'
     df['Experiment'] = df.apply(lambda x: _match_file(groups, x['Filename']), axis = 1)
     if df['Experiment'].value_counts()['N/A'] > 0:
         logging.info('Warning: ' + str(df['Experiment'].value_counts()['N/A']) + ' rows could not be assigned to an experiment!') # They will all be grouped together for FDR calculations
@@ -219,7 +220,8 @@ def main(args):
     # target_filter = config._sections['PeakFDRer']['target_filter']
     
     # Read input file
-    df = pd.read_feather(args.infile)
+    #df = pd.read_feather(args.infile)
+    df = pd.read_csv(args.infile, sep="\t", float_precision='high')
     
     # Add groups
     groups = read_experiments(args.experiment_table)
@@ -290,6 +292,7 @@ if __name__ == '__main__':
     
     parser.add_argument('-i',  '--infile', required=True, help='Input feather file with the peak assignation')
     parser.add_argument('-e',  '--experiment_table', required=True, help='Tab-separated file containing experiment names and file paths')
+    parser.add_argument('-c', '--config', default=defaultconfig, help='Path to custom config.ini file')
     
     parser.add_argument('-s',  '--score_column', help='Name of column with score for FDR calculation')
     #parser.add_argument('-f',  '--fdr_filter', help='FDR value to filter by')
