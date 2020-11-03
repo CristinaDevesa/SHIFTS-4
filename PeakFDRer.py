@@ -59,7 +59,7 @@ def make_groups(df, groups):
         logging.info('Warning: ' + str(df['Experiment'].value_counts()['N/A']) + ' rows could not be assigned to an experiment!') # They will all be grouped together for FDR calculations
     return df
 
-def get_spire_FDR(df, score_column, xcorr_type): #TODO: we don't have xcorr_type, we have recom_data, take out column names
+def get_spire_FDR(df, score_column, col_Peak, xcorr_type): #TODO: we don't have xcorr_type, we have recom_data, take out column names
     #This will be for the group of scans in a peak that are contained within 
     #one recom-assignated theoretical deltamass. Then, when we do peak_FDR, we
     #include these as well as the rest of the values in the peak.
@@ -98,7 +98,7 @@ def get_spire_FDR(df, score_column, xcorr_type): #TODO: we don't have xcorr_type
     df.drop(['Rank'], axis = 1, inplace = True)
     return df
 
-def get_peak_FDR(df, score_column, recom_data, closestpeak_column):
+def get_peak_FDR(df, score_column, col_Peak, closestpeak_column, recom_data):
     '''
     Calculate peak FDR for each peak in one bin (1 Da)
     '''
@@ -107,7 +107,7 @@ def get_peak_FDR(df, score_column, recom_data, closestpeak_column):
     df['Peak_Rank_T'] = -1
     df['Peak_Rank_D'] = -1
     # identify peaks
-    peaks = df[df['Peak'] == 'PEAK'] # filter by Peak
+    peaks = df[df[col_Peak] == 'PEAK'] # filter by Peak
     grouped_peaks = peaks.groupby([closestpeak_column]) # group by ClosestPeak
     # df.get_group("group")
     #grouped_peaks.groups # group info
@@ -184,7 +184,7 @@ def filtering(df, fdr_filter, target_filter): # This goes on a separate module n
         df[df['GlobalFDR'] >= fdr_filter]
     return df
 
-def bin_operations(df, score_column, recom_data, peak_label, closestpeak_column):
+def bin_operations(df, score_column, recom_data, peak_label, col_Peak, closestpeak_column):
     '''
     Main function that handles the operations by BIN
     '''
@@ -192,11 +192,11 @@ def bin_operations(df, score_column, recom_data, peak_label, closestpeak_column)
     df = get_local_FDR(df, score_column, recom_data)
     
     # calculate peak FDR
-    df = get_peak_FDR(df, score_column, recom_data, closestpeak_column)
+    df = get_peak_FDR(df, score_column, col_Peak, closestpeak_column, recom_data)
     
     # calculate spire FDR
     #if recom_data: #recom_data =! 0
-    #df = get_spire_FDR(df, score_column, recom_data)
+    #df = get_spire_FDR(df, score_column, col_Peak, recom_data)
     
     return df
 
@@ -212,6 +212,7 @@ def main(args):
     score_column = config._sections['PeakFDRer']['score_column']
     recom_data = config._sections['PeakFDRer']['recom_data']
     peak_label = config._sections['PeakAssignator']['peak_label']
+    col_Peak = config._sections['PeakAssignator']['peak_column']
     col_CalDeltaMH = config._sections['PeakAssignator']['caldeltamh_column']
     closestpeak_column = config._sections['PeakAssignator']['closestpeak_column']
     # fdr_filter = config._sections['PeakFDRer']['fdr_filter']
@@ -229,6 +230,7 @@ def main(args):
         df = executor.map(bin_operations, list(df.groupby('bin')), repeat(score_column),
                                                                    repeat(recom_data), 
                                                                    repeat(peak_label),
+                                                                   repeat(col_Peak),
                                                                    repeat(closestpeak_column)) 
     df = pd.concat(df)
     
