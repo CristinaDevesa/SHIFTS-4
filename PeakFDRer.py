@@ -94,9 +94,9 @@ def get_spire_FDR(df, score_column, col_Peak, xcorr_type): #TODO: we don't have 
         df.loc[group_index] # repeat steps of local_FDR
         # sort bin
         if xcorr_type == 0: # by Comet Xcorr
-            df.loc[group_index].sort_values(by=['Xcor', 'Label'], inplace=True)
+            df.loc[group_index].sort_values(by=['Xcor', 'Label'], inplace=True, ascending=False)
         else: # by Comet cXcorr
-            df.loc[group_index].sort_values(by=['CorXcor', 'Label'], inplace=True) # TODO: Fix SHIFTS cXcorr
+            df.loc[group_index].sort_values(by=['CorXcor', 'Label'], inplace=True, ascending=False) # TODO: Fix SHIFTS cXcorr
         # count targets and decoys
         df.loc[group_index]['Rank'] = df.loc[group_index].groupby('Label').cumcount()+1 # This column can be deleted later
         df.loc[group_index]['Spire_Rank_T'] = np.where(df.loc[group_index]['Label']=='Target', df.loc[group_index]['Rank'], 0)
@@ -142,7 +142,7 @@ def get_peak_FDR(df, score_column, col_Peak, closestpeak_column, recom_data):
         
     ###
     def _peak_FDR(group, score_column):
-        group.sort_values(by=[score_column, 'Label'], inplace=True)
+        group.sort_values(by=[score_column, 'Label'], inplace=True, ascending=False)
         group['Rank'] = group.groupby('Label').cumcount()+1 # This column can be deleted later
         group['Peak_Rank_T'] = np.where(group['Label']=='Target', group['Rank'], 0)
         group['Peak_Rank_T'] = group['Peak_Rank_T'].replace(to_replace=0, method='ffill')
@@ -172,10 +172,10 @@ def get_local_FDR(df, score_column, recom_data):
     '''
     # sort bin
     #if recom_data == 0: # by Comet Xcorr
-        #df.sort_values(by=['Xcor', 'Label'], inplace=True)
+        #df.sort_values(by=['Xcor', 'Label'], inplace=True, ascending=False)
     #else: # by Comet cXcorr
-        #df.sort_values(by=['CorXcor', 'Label'], inplace=True) # TODO: Fix SHIFTS cXcorr
-    df.sort_values(by=[score_column, 'Label'], inplace=True)
+        #df.sort_values(by=['CorXcor', 'Label'], inplace=Tru, ascending=False) # TODO: Fix SHIFTS cXcorr
+    df.sort_values(by=[score_column, 'Label'], inplace=True, ascending=False)
         
     # count targets and decoys
     df['Rank'] = df.groupby('Label').cumcount()+1 # This column can be deleted later
@@ -197,10 +197,10 @@ def get_global_FDR(df, score_column, recom_data):
     (experiment_value, df) = df[0], df[1]
     # sort by score
     # if recom_data == 0: # by Comet Xcorr
-    #     df.sort_values(by=['Xcor', 'Label'], inplace=True)
+    #     df.sort_values(by=['Xcor', 'Label'], inplace=True, ascending=False)
     # else: # by Comet cXcorr
-    #     df.sort_values(by=['CorXcor', 'Label'], inplace=True) # TODO: Fix SHIFTS cXcorr
-    df.sort_values(by=[score_column, 'Label'], inplace=True)
+    #     df.sort_values(by=['CorXcor', 'Label'], inplace=True, ascending=False) # TODO: Fix SHIFTS cXcorr
+    df.sort_values(by=[score_column, 'Label'], inplace=True, ascending=False)
         
     # count targets and decoys
     df['Rank'] = df.groupby('Label').cumcount()+1 # This column can be deleted later
