@@ -172,7 +172,7 @@ def getSysError(df_filtered, mzcolumn, calibrated):
         logging.info("Alpha: " + "{:.4e}".format(alpha))
         return sys_error, alpha
 
-def rawCorrection(df, mzcolumn, sys_error):
+def rawCorrection(df, mzcolumn, alpha):
     '''
     Correct exp_mz values from infile using the systematic error.
     '''
@@ -182,12 +182,12 @@ def rawCorrection(df, mzcolumn, sys_error):
     #if 'exp_mh_cal' not in df:
         #df.insert(df.columns.get_loc('cal_exp_mz')+1, 'exp_mh_cal', np.nan)
     
-    def _correct(exp_mz, abs_error, sys_error):
-        cal_exp_mz = exp_mz * (1  - sys_error)
+    def _correct(exp_mz, abs_error, alpha):
+        cal_exp_mz = exp_mz * (1  - alpha)
         return cal_exp_mz
     
     #df['cal_exp_mz'] = df[config._sections['Input']['mzcolumn']] - sys_error
-    df['cal_exp_mz'] = df.apply(lambda x: _correct(x[mzcolumn], x['abs_error'], sys_error), axis = 1)
+    df['cal_exp_mz'] = df.apply(lambda x: _correct(x[mzcolumn], x['abs_error'], alpha), axis = 1)
     df['cal_exp_mh'] = df.apply(lambda x: (x['cal_exp_mz'] * x[config._sections['Input']['zcolumn']]) - ((x[config._sections['Input']['zcolumn']]-1) * mass_config.getfloat('Masses', 'm_proton')), axis = 1)
     return df
 
@@ -240,15 +240,15 @@ def main(args):
     Main function
     '''
     # Main variables 
-    score_min = float(config._sections['Filtering']['score_min'])
-    ppm_max = float(config._sections['Filtering']['ppm_max'])
-    scorecolumn = config._sections['Input']['scorecolumn']
-    zcolumn = config._sections['Input']['zcolumn']
-    mzcolumn = config._sections['Input']['mzcolumn']
-    seqcolumn = config._sections['Input']['seqcolumn']
-    #dmcolumn = config._sections['Input']['dmcolumn']
-    proteincolumn = config._sections['Input']['proteincolumn']
-    decoyprefix = config._sections['Input']['decoyprefix']
+    score_min = float(config._sections['DMcalibrator']['score_min'])
+    ppm_max = float(config._sections['DMcalibrator']['ppm_max'])
+    scorecolumn = config._sections['DMcalibrator']['scorecolumn']
+    zcolumn = config._sections['DMcalibrator']['zcolumn']
+    mzcolumn = config._sections['DMcalibrator']['mzcolumn']
+    seqcolumn = config._sections['DMcalibrator']['seqcolumn']
+    #dmcolumn = config._sections['DMcalibrator']['dmcolumn']
+    proteincolumn = config._sections['DMcalibrator']['proteincolumn']
+    decoyprefix = config._sections['DMcalibrator']['decoyprefix']
     abscolumn = 'abs_error'
     calabscolumn = 'cal_dm_mh'
     calmzcolumn = 'cal_exp_mz'
@@ -320,7 +320,7 @@ if __name__ == '__main__':
 
         ''')
         
-    defaultconfig = os.path.join(os.path.dirname(__file__), "config/DMcalibrator.ini")
+    defaultconfig = os.path.join(os.path.dirname(__file__), "config/SHIFTS.ini")
     
     parser.add_argument('-i', '--infile', required=True, help='Path to input file')
     parser.add_argument('-c', '--config', default=defaultconfig, help='Path to custom config.ini file')
@@ -365,7 +365,7 @@ if __name__ == '__main__':
         #config.set('Logging', 'create_ini', '1')
     # if something is changed, write a copy of ini
     if config.getint('Logging', 'create_ini') == 1:
-        with open(os.path.dirname(args.infile) + '/DMcalibrator.ini', 'w') as newconfig:
+        with open(os.path.dirname(args.infile) + '/SHIFTS.ini', 'w') as newconfig:
             config.write(newconfig)
         
 

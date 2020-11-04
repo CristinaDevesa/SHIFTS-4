@@ -233,15 +233,15 @@ def main(args):
     Main function
     '''
     # Main variables 
-    score_min = float(config._sections['Filtering']['score_min'])
-    ppm_max = float(config._sections['Filtering']['ppm_max'])
-    scorecolumn = config._sections['Input']['scorecolumn']
-    zcolumn = config._sections['Input']['zcolumn']
-    mzcolumn = config._sections['Input']['mzcolumn']
-    seqcolumn = config._sections['Input']['seqcolumn']
-    #dmcolumn = config._sections['Input']['dmcolumn']
-    proteincolumn = config._sections['Input']['proteincolumn']
-    decoyprefix = config._sections['Input']['decoyprefix']
+    score_min = float(config._sections['DMcalibrator']['score_min'])
+    ppm_max = float(config._sections['DMcalibrator']['ppm_max'])
+    scorecolumn = config._sections['DMcalibrator']['scorecolumn']
+    zcolumn = config._sections['DMcalibrator']['zcolumn']
+    mzcolumn = config._sections['DMcalibrator']['mzcolumn']
+    seqcolumn = config._sections['DMcalibrator']['seqcolumn']
+    #dmcolumn = config._sections['DMcalibrator']['dmcolumn']
+    proteincolumn = config._sections['DMcalibrator']['proteincolumn']
+    decoyprefix = config._sections['DMcalibrator']['decoyprefix']
     abscolumn = 'abs_error'
     calabscolumn = 'cal_dm_mh'
     calmzcolumn = 'cal_exp_mz'
@@ -313,7 +313,7 @@ if __name__ == '__main__':
 
         ''')
         
-    defaultconfig = os.path.join(os.path.dirname(__file__), "config/DMcalibrator.ini")
+    defaultconfig = os.path.join(os.path.dirname(__file__), "config/SHIFTS.ini")
     
     parser.add_argument('-i', '--infile', required=True, help='Path to input file')
     parser.add_argument('-c', '--config', default=defaultconfig, help='Path to custom config.ini file')
@@ -358,7 +358,7 @@ if __name__ == '__main__':
         #config.set('Logging', 'create_ini', '1')
     # if something is changed, write a copy of ini
     if config.getint('Logging', 'create_ini') == 1:
-        with open(os.path.dirname(args.infile) + '/DMcalibrator.ini', 'w') as newconfig:
+        with open(os.path.dirname(args.infile) + '/SHIFTS.ini', 'w') as newconfig:
             config.write(newconfig)
         
 

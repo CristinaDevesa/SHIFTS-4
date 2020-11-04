@@ -265,10 +265,15 @@ def main(args):
     df = pd.read_csv(args.infile, sep="\t", float_precision='high')
     
     # Add groups
+    logging.info('Read experiments table')
     groups = read_experiments(args.experiment_table)
     df = make_groups(df, groups)
+    # Return info
+    group_dict = {a: b['Filename'].tolist() for a,b in groups.groupby('Experiment')}
+    for key in group_dict:
+        logging.info('\t' + key + ': ' + str(len(group_dict[key])) + ' files')
     
-    logging.info("Parallel the operations by BIN")
+    logging.info("Calculate Peak and Local FDR)")
     with concurrent.futures.ProcessPoolExecutor(max_workers=args.n_workers) as executor:        
         df = executor.map(bin_operations, list(df.groupby('bin')), repeat(score_column),
                                                                    repeat(recom_data), 
@@ -277,14 +282,14 @@ def main(args):
                                                                    repeat(closestpeak_column)) 
     df = pd.concat(df)
     
-    logging.info("Calculate gobal FDR")
+    logging.info("Calculate Global FDR")
     # df = get_global_FDR(df, score_column, recom_data)
     with concurrent.futures.ProcessPoolExecutor(max_workers=args.n_workers) as executor:
         df = executor.map(get_global_FDR, list(df.groupby('Experiment')), repeat(score_column),
                                                                           repeat(recom_data))
     df = pd.concat(df)
     
-    logging.info("Sort by DeltaMass cal")
+    logging.info("Sort by calibrated DeltaMass")
     df.sort_values(by=[col_CalDeltaMH], inplace=True)
     df.reset_index(drop=True, inplace=True)
     
@@ -330,7 +335,7 @@ if __name__ == '__main__':
 
         ''')
         
-    defaultconfig = os.path.join(os.path.dirname(__file__), "config/PeakModeller.ini")
+    defaultconfig = os.path.join(os.path.dirname(__file__), "config/SHIFTS.ini")
     
     parser.add_argument('-i',  '--infile', required=True, help='Input feather file with the peak assignation')
     parser.add_argument('-e',  '--experiment_table', required=True, help='Tab-separated file containing experiment names and file paths')
@@ -362,7 +367,7 @@ if __name__ == '__main__':
         config.set('Logging', 'create_ini', '1')
     # if something is changed, write a copy of ini
     if config.getint('Logging', 'create_ini') == 1:
-        with open(os.path.dirname(args.infile) + '/PeakModeller.ini', 'w') as newconfig:
+        with open(os.path.dirname(args.infile) + '/SHIFTS.ini', 'w') as newconfig:
             config.write(newconfig)
 
     # logging debug level. By default, info level

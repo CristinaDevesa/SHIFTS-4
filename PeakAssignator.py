@@ -187,11 +187,11 @@ def main(args):
     # df.reset_index(drop=True, inplace=True)
     df = pd.read_csv(args.infile, sep="\t", float_precision='high')
  
-    logging.info("create a column with the bin")
+    logging.info("Create a column with the bin")
     df['bin'] = df[col_CalDeltaMH].astype(str).str.extract(r'^([^\.]*)')
 
 
-    logging.info("parallel the operations by BIN")
+    logging.info("Parallel the operations by bin")
     with concurrent.futures.ProcessPoolExecutor(max_workers=args.n_workers) as executor:        
         df = executor.map(bin_operations, list(df.groupby("bin")), repeat(apex_list),
                                                                    repeat(ppm_max),
@@ -216,7 +216,7 @@ def main(args):
     # d_t.to_csv("kk_tail.tsv", sep="\t")
     
 
-    logging.info("write output file")
+    logging.info("Write output file")
     # https://towardsdatascience.com/the-best-format-to-save-pandas-data-414dca023e0d
     # begin:printHDF5
     # Note: Explote the Memory!!!
@@ -244,7 +244,7 @@ if __name__ == '__main__':
 
         ''')
         
-    defaultconfig = os.path.join(os.path.dirname(__file__), "config/PeakModeller.ini")
+    defaultconfig = os.path.join(os.path.dirname(__file__), "config/SHIFTS.ini")
     
     parser.add_argument('-i',  '--infile', required=True, help='Input file with the peak picking')
     parser.add_argument('-a',  '--appfile', required=True, help='File with the apex list of Mass')
@@ -273,7 +273,7 @@ if __name__ == '__main__':
         config.set('Logging', 'create_ini', '1')
     # if something is changed, write a copy of ini
     if config.getint('Logging', 'create_ini') == 1:
-        with open(os.path.dirname(args.infile) + '/PeakModeller.ini', 'w') as newconfig:
+        with open(os.path.dirname(args.infile) + '/SHIFTS.ini', 'w') as newconfig:
             config.write(newconfig)
 
     # logging debug level. By default, info level
