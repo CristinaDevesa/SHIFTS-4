@@ -21,6 +21,7 @@ import numpy as np
 import os
 import pandas as pd
 import sys
+import math
 
 # TODO recom parameter: if no recom column specified, proceed without spire FDR
 
@@ -241,6 +242,33 @@ def bin_operations(df, score_column, recom_data, peak_label, col_Peak, closestpe
     
     return df
 
+def make_bins(col_CalDeltaMH):
+    '''
+    Make bins for local FDR, centered at .5 Da
+    '''
+    bin_width = 1 #Da
+    # df.sort_values(by=[col_CalDeltaMH], inplace=True)
+    # df.reset_index(drop=True, inplace=True)
+    # bins = list(np.arange(int(round(df[col_CalDeltaMH][0])),
+    #                       int(round(df[col_CalDeltaMH].iloc[-1]))+bin_width,
+    #                       bin_width))
+    # bins = [round(x, 1) for x in bins]
+    # df['LocalBin'] = pd.cut(df['cal_dm_mh'], bins=bins)
+    decimal, deltamass = math.modf(float(col_CalDeltaMH))
+    if deltamass >= 0:
+        if abs(decimal) >= 0.5:
+            local_bin = deltamass + 0.5
+        else:
+            local_bin = deltamass -0.5
+    else:
+        if abs(decimal) >= 0.5:
+            local_bin = deltamass - 1.5
+        else:
+            local_bin = deltamass - 0.5
+    local_bin_str = str(local_bin) + " to " + str(local_bin + bin_width)
+    return local_bin_str
+    
+
 #################
 # Main function #
 #################
@@ -273,14 +301,17 @@ def main(args):
     for key in group_dict:
         logging.info('\t' + key + ': ' + str(len(group_dict[key])) + ' files')
     
-    logging.info("Calculate Peak and Local FDR)")
+    logging.info("Binning")
+    df['LocalBin'] = np.vectorize(make_bins)(df[col_CalDeltaMH])
+    logging.info("Calculate Peak and Local FDR")
     with concurrent.futures.ProcessPoolExecutor(max_workers=args.n_workers) as executor:        
-        df = executor.map(bin_operations, list(df.groupby('bin')), repeat(score_column),
+        df = executor.map(bin_operations, list(df.groupby('LocalBin')), repeat(score_column),
                                                                    repeat(recom_data), 
                                                                    repeat(peak_label),
                                                                    repeat(col_Peak),
                                                                    repeat(closestpeak_column)) 
     df = pd.concat(df)
+    #df.drop(['LocalBin'], axis = 1, inplace = True)
     
     logging.info("Calculate Global FDR")
     # df = get_global_FDR(df, score_column, recom_data)
