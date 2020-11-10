@@ -80,7 +80,7 @@ def get_spire_FDR(df, score_column, col_Peak, xcorr_type): #TODO: we don't have 
     '''
     Calculate spire FDR for each spire in one bin (1 Da)
     '''
-    df['SpireFDR'] = -1
+    df['SpireFDR'] = 100
     df['Rank'] = -1
     df['Spire_Rank_T'] = -1
     df['Spire_Rank_D'] = -1
@@ -114,7 +114,7 @@ def get_peak_FDR(df, score_column, col_Peak, closestpeak_column, recom_data):
     '''
     Calculate peak FDR for each peak in one bin (1 Da)
     '''
-    df['PeakFDR'] = -1
+    df['PeakFDR'] = 100
     df['Rank'] = -1
     df['Peak_Rank_T'] = -1
     df['Peak_Rank_D'] = -1
@@ -247,13 +247,6 @@ def make_bins(col_CalDeltaMH):
     Make bins for local FDR, centered at .5 Da
     '''
     bin_width = 1 #Da
-    # df.sort_values(by=[col_CalDeltaMH], inplace=True)
-    # df.reset_index(drop=True, inplace=True)
-    # bins = list(np.arange(int(round(df[col_CalDeltaMH][0])),
-    #                       int(round(df[col_CalDeltaMH].iloc[-1]))+bin_width,
-    #                       bin_width))
-    # bins = [round(x, 1) for x in bins]
-    # df['LocalBin'] = pd.cut(df['cal_dm_mh'], bins=bins)
     decimal, deltamass = math.modf(float(col_CalDeltaMH))
     if deltamass >= 0:
         if abs(decimal) >= 0.5:
