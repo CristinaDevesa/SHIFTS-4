@@ -36,7 +36,7 @@ def readInfile(infile, scorecolumn, mzcolumn, zcolumn, seqcolumn, proteincolumn)
     '''    
     Read input file to dataframe.
     '''
-    df = pd.read_csv(infile, skiprows=1, sep="\t", float_precision='high', low_memory=False) # TODO: option for header/no header
+    df = pd.read_csv(infile, sep="\t", float_precision='high', low_memory=False) # TODO: option for header/no header
     #df = pd.read_csv(infile, sep="\t", float_precision='high')
     # Cleanup
     df = df[df[scorecolumn].notna()]
@@ -363,8 +363,8 @@ if __name__ == '__main__':
         
 
     # logging debug level. By default, info level
-    log_file = outfile = args.infile[:-4] + '_log.txt'
-    log_file_debug = outfile = args.infile[:-4] + '_log_debug.txt'
+    log_file = outfile = args.infile[:-4] + '_calibrated_log.txt'
+    log_file_debug = outfile = args.infile[:-4] + '_calibrated_log_debug.txt'
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s - %(levelname)s - %(message)s',
