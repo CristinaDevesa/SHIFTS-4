@@ -36,7 +36,7 @@ def readInfile(infile, scorecolumn, mzcolumn, zcolumn, seqcolumn, proteincolumn)
     '''    
     Read input file to dataframe.
     '''
-    df = pd.read_csv(infile, skiprows=1, sep="\t", float_precision='high', low_memory=False) # TODO: option for header/no header
+    df = pd.read_csv(infile, sep="\t", float_precision='high', low_memory=False) # TODO: option for header/no header
     #df = pd.read_csv(infile, sep="\t", float_precision='high')
     # Cleanup
     df = df[df[scorecolumn].notna()]
