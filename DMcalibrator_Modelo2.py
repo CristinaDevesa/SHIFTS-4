@@ -188,7 +188,7 @@ def rawCorrection(df, mzcolumn, alpha):
     
     #df['cal_exp_mz'] = df[config._sections['Input']['mzcolumn']] - sys_error
     df['cal_exp_mz'] = df.apply(lambda x: _correct(x[mzcolumn], x['abs_error'], alpha), axis = 1)
-    df['cal_exp_mh'] = df.apply(lambda x: (x['cal_exp_mz'] * x[config._sections['Input']['zcolumn']]) - ((x[config._sections['Input']['zcolumn']]-1) * mass_config.getfloat('Masses', 'm_proton')), axis = 1)
+    df['cal_exp_mh'] = df.apply(lambda x: (x['cal_exp_mz'] * x[config._sections['DMcalibrator']['zcolumn']]) - ((x[config._sections['DMcalibrator']['zcolumn']]-1) * mass_config.getfloat('Masses', 'm_proton')), axis = 1)
     return df
 
 def getDMcal(df, mzcolumn, calmzcolumn, zcolumn):

@@ -185,7 +185,7 @@ def rawCorrection(df, mzcolumn, sys_error):
     
     #df['cal_exp_mz'] = df[config._sections['Input']['mzcolumn']] - sys_error
     df['cal_exp_mz'] = df.apply(lambda x: _correct(x[mzcolumn], x['abs_error'], sys_error), axis = 1)
-    df['cal_exp_mh'] = df.apply(lambda x: (x['cal_exp_mz'] * x[config._sections['Input']['zcolumn']]) - ((x[config._sections['Input']['zcolumn']]-1) * mass_config.getfloat('Masses', 'm_proton')), axis = 1)
+    df['cal_exp_mh'] = df.apply(lambda x: (x['cal_exp_mz'] * x[config._sections['DMcalibrator']['zcolumn']]) - ((x[config._sections['DMcalibrator']['zcolumn']]-1) * mass_config.getfloat('Masses', 'm_proton')), axis = 1)
     return df
 
 def getDMcal(df, mzcolumn, calmzcolumn, zcolumn):
@@ -336,25 +336,25 @@ if __name__ == '__main__':
     config = configparser.ConfigParser(inline_comment_prefixes='#')
     config.read(args.config)
     if args.scoremin is not None:
-        config.set('Filtering', 'score_min', str(args.scoremin))
+        config.set('DMcalibrator', 'score_min', str(args.scoremin))
         config.set('Logging', 'create_ini', '1')
     if args.ppmmax is not None:
-        config.set('Filtering', 'ppm_max', str(args.ppmmax))
+        config.set('DMcalibrator', 'ppm_max', str(args.ppmmax))
         config.set('Logging', 'create_ini', '1')
     if args.scorecolumn is not None:
-        config.set('Input', 'scorecolumn', str(args.scorecolumn))
+        config.set('DMcalibrator', 'scorecolumn', str(args.scorecolumn))
         config.set('Logging', 'create_ini', '1')
     if args.mzcolumn is not None:
-        config.set('Input', 'mzcolumn', str(args.mzcolumn))
+        config.set('DMcalibrator', 'mzcolumn', str(args.mzcolumn))
         config.set('Logging', 'create_ini', '1')
     if args.chargecolumn is not None:
-        config.set('Input', 'zcolumn', str(args.zcolumn))
+        config.set('DMcalibrator', 'zcolumn', str(args.zcolumn))
         config.set('Logging', 'create_ini', '1')
     if args.seqcolumn is not None:
-        config.set('Input', 'seqcolumn', str(args.seqcolumn))
+        config.set('DMcalibrator', 'seqcolumn', str(args.seqcolumn))
         config.set('Logging', 'create_ini', '1')
     #if args.dmcolumn is not None:
-        #config.set('Input', 'dmcolumn', str(args.dmcolumn))
+        #config.set('DMcalibrator', 'dmcolumn', str(args.dmcolumn))
         #config.set('Logging', 'create_ini', '1')
     # if something is changed, write a copy of ini
     if config.getint('Logging', 'create_ini') == 1:
