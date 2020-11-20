@@ -265,7 +265,7 @@ def addPlotsToFigure(figure, section):
             # If scatter...
             figure.circle(plotObject.data.loc[bool_not_na, plotObject.plots[section]['x_axis']],
                         plotObject.data.loc[bool_not_na, column],
-                        size=6,
+                        size=1,
                         color=d3['Category20'][20][plotObject.color],
                         legend_label=column,
                         name = column)
