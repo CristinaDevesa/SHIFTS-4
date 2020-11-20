@@ -26,495 +26,575 @@ import matplotlib.ticker
 from bokeh.plotting import figure, output_file, show, save
 from bokeh.models import SingleIntervalTicker, LinearAxis
 from bokeh.layouts import gridplot
+from bokeh.palettes import d3
 import tkinter as tk
+from tkinter import font as tkfont
+from tkinter import filedialog as fd
 
 import pdb
 
 
-###################
-# Local functions #
-###################
+########################
+########################
+## Plotting functions ##
+########################
+########################
 
-class Histogram_Class:
-    '''
-    DataFrame_object with data from histogram:
-        self.df: Pandas dataframe
-        self.path: Directory path from which dataframe was taken
-    '''
+class PlotObject():
+    """
+    PlotObject stores the information used to plot
+    """
 
     def __init__(self):
-        self.path = None
-        self.df = None
 
+        self.path = ""  # path to histogram
+        self.data = None    # pandas dataframe
+        self.read = False   # True when dataframe is charged
+        self.nPlots = 0     # number of graphs
+        self.presentPlot = 0    # number of plot being customized in GUI
+        self.plots = {}     # key = Plot section
+                            # value = dictionary with 4 keys: columns (list), plotType (list), threshold (list), x_axis (string)
+        self.plotSections = []  # List with plot sections
+        self.color = 0  
+        self.peaks = []     # List of pairs (float, string)
+    
+    def readData(self, path):
+        """
+        """
+        logging.info("Reading histogram")
 
-    def ReadFromPath(self, path):
-        '''
-        Method used to read histogram from path and storing it ass a pandas dataframe
-        in self.df and the source in self.path
-        '''
-
-        log_str = 'Reading file: ' + str(Path(path))
-        logging.info(log_str)
-
+        self.path = path
+        
         try:
-            self.df = pd.read_csv(path, sep="\t", float_precision='high')
-            self.path = path
+            self.data = pd.read_csv(self.path, sep="\t", float_precision='high')
+            self.read = True
         
         except:
-            log_str = 'error: ' + str(path) + ' could not be openned.'
-            logging.info(log_str)
-            sys.exit(log_str)
+            logging.info(f"Unexpected error: {sys.exc_info()[0]}")
+            sys.exit()
+    
+
+    def getPathFromGUI(self, firstTab):
+        """
+        """
+        self.path = fd.askopenfilename()
+        self.readData(self.path)
+        
+        msg = tk.Label(firstTab, text="File uploaded!", font=('Helvetica', 10))
+        msg.place(x=208, y=210)
+    
+
+    def readPlotsFromConfig(self, config):
+        """
+        Search sections containing [Plot x], where x is a number.
+        From each section get:
+            - columns: List of columns in Y axis
+            - plotType: List with type of plot (line, scatter)
+            - threshold: List with thresholds 
+            - x_axis: String with column in X axis
+        
+        This dictionary is stored in plots with section name as key
+        """
+
+        logging.info("Reading config file")
+
+        self.plotSections = [section for section in config.sections() if re.search(r"^Plot\s?\w*$", section, re.IGNORECASE)]
+        
+        self.nPlots = len(self.plotSections)
+
+        for section in self.plotSections:
+            self.plots[section] = {
+                'columns': [i.strip() for i in re.split(r",\s?|;\s?|\s", config.get(section, 'columnName'))],
+                'plotType': [i.strip() for i in re.split(r",\s?|;\s?|\s", config.get(section, 'plotType'))],
+                'threshold': [float(i.strip()) for i in re.split(r",\s?|;\s?|\s", config.get(section, 'thresholds'))\
+                                if re.search(r"^\d+(\.\d*)?([eE]\d+)?$", i.strip())],
+                'x_axis': config.get(section, 'x_axis')
+            }
+
+
+    def guiSelection(self, user_selection, thr1, thr2):
+        """
+        Parameters selected by user through GUI are stored as dictionary in
+        plots. The same structure as readPlotsFromConfig
+        """
+
+        # Create name of section, which will be the key
+        self.plotSections.append(f"Plot {self.presentPlot}")
+
+
+        self.plots[self.plotSections[-1]] = {
+            "columns": [col for col in user_selection['y_axis'] if user_selection['y_axis'][col]["selected"].get()],
+            "plotType": [user_selection['y_axis'][col]['type'].get() \
+                for col in user_selection['y_axis'] if user_selection['y_axis'][col]["selected"].get()],
+            "threshold": [float(thr) for thr in [thr1, thr2] if re.search(r"^\d+(\.\d*)?([eE]\d+)?$", thr)],
+            "x_axis": user_selection['x_axis'].get()
+        }
+
+
+    def getPeaks(self, path):
+        '''
+        Input:
+            - path: String containing path to peaks list
+        Effect:
+            - self.peaks: List of pairs. The first element of each pair is a float with the theoretical DM and the
+            second element is its associated name
+        '''
+
+        logging.info("Reading peaks list")
+
+        try:
+            df_peaks = pd.read_csv(path, sep="\t", float_precision="high")
+        
+        except:
+            logging.info(f"Error reading peaks list: {sys.exc_info()[0]}")
+            sys.exit()
+
+        self.peaks = [[float(dm), str(name)] for dm, name in zip(df_peaks.loc[:, 'DM'].to_list(), df_peaks.loc[:, 'Name'].to_list())]
+
+    
+    def getPeakListPathFromGUI(self, firstTab):
+        """
+        """
+        self.path = fd.askopenfilename()
+        self.getPeaks(self.path)
+        
+        msg = tk.Label(firstTab, text="File uploaded!", font=('Helvetica', 10))
+        msg.place(x=208, y=325)
+
+
+    def reset(self):
+        """
+        Reset object, when graph was plotted
+        """
+        self.__init__()
         
 
-    def ReadFromGUI(self):
-        '''
-        Method used to get filename from a dialog and read the histogram selected
-        '''
 
-        logging.info("Getting filename from GUI")
-
-        filename = tk.filedialog.askopenfilename()
-
-        self.ReadFromPath(filename)
-        
-
-def plot_bottom_graph(main_plot, letter, letter_to_colInfo, df):
+def plot_bottom_graph(main_plot, section):
     '''
     Represent bottom graph using main_plot as reference. It will use its
     x axis, so they are coupled. The function will return the bottom plot figure
     object.
     '''
 
-    # Extract information from bottom plot
-    bottom_plot_name = letter_to_colInfo[letter]['Name']
-    bottom_plot_color = letter_to_colInfo[letter]['Color']
-    # bottom_plot_index = letter_to_colInfo[letter]['Index']
-
-    bottom_plot_column_name = letter_to_colInfo[letter]['ColumnName']
-
-    try:
-        bottom_plot_index = np.where(df.df.columns == bottom_plot_column_name)[0][0]
-
-    except IndexError:
-        logging.info(f"Error: {bottom_plot_column_name} column was not found. Is it correctly written?")
-        return ""
-
-    #Build bottom plot
-    bottom_plot = figure(title=bottom_plot_name + " representation",\
-         x_axis_label='Delta mass', y_axis_label=bottom_plot_name,\
+    # Build bottom plot
+    bottom_plot = figure(title=f"{section}",\
+         x_axis_label=plotObject.plots[section]['x_axis'], \
          width=1300, height=400, x_range=main_plot.x_range,\
          tools = "pan,xzoom_in,xzoom_out,ywheel_zoom,box_zoom,reset,save,undo,hover", tooltips=[("Name", "$name")])
-
-    try:
-        bottom_plot.xaxis.ticker.desired_num_ticks = 30
 		
-    except AttributeError:
-        logging.info(f"AttributeError: {err}")
-        print("bokeh package needs to be updated (pip install bokeh -U)")
-        sys.exit()
-		
-    bottom_plot.line(df.df.iloc[:, 1], df.df.iloc[:, bottom_plot_index], line_width=2, color=bottom_plot_color, name=bottom_plot_name)
+    bottom_plot = addPlotsToFigure(bottom_plot, section)
 
     return bottom_plot
 
 
-def plot_threshold(pi, threshold, df):
+def plot_pleak(figure, section):
     '''
-    Function used to plot threshold lines
-    Input:  pi: Figure in which threshold is plotted
-            threshold: List with threshold values
-            df: Pandas data frame with all values
-    Return: It returns the figure with added threshold
+    Plot list of peaks given by the user
     '''
 
-    min_mz = np.min(df.df.iloc[:, 1])
-    max_mz = np.max(df.df.iloc[:, 1])
+    # Get all values from columns plotted by user to find minimum value
+    all_values = [plotObject.data.loc[:, col] for col in plotObject.plots[section]['columns']]
+    
+    all_values = [j for i in all_values for j in i if not pd.isna(j)]
+
+    min_value = np.min(all_values)
+    min_value = min_value - abs(0.1*min_value)
+    max_value = np.max(all_values)*1.1
+
+    y_axis = (min_value, 0, max_value)
+    for peak, peak_name in plotObject.peaks:
+        x_axis = np.ones_like(y_axis)*peak
+        figure.line(x_axis, y_axis, line_color='green', line_width=2, name=peak_name)
+    
+    return figure
+
+
+def plot_threshold(figure, section):
+    '''
+    Plot thresholds
+    '''
+
+    min_mz = np.min(plotObject.data.loc[:, plotObject.plots[section]['x_axis']])
+    max_mz = np.max(plotObject.data.loc[:, plotObject.plots[section]['x_axis']])
 
     x_axis = (min_mz, max_mz)
 
-    for threshold_i in threshold:
-        # threshold_i_Y_values = np.ones_like(df.df.iloc[:, 1])*threshold_i
+    for threshold_i in plotObject.plots[section]['threshold']:
         y_axis = np.ones_like(x_axis)*threshold_i
-        pi.line(x_axis, y_axis, line_color='black', line_dash="4 4", name="Threshold")
-    
-    return [pi]
+        figure.line(x_axis, y_axis, line_color='black', line_dash="4 4", name="Threshold")
+
+    return figure
 
 
-def plot_pleak(pi, peaks_list, column_name, df):
-    '''
-    Input:
-        - pi: Bokeh plot figure in which peaks are plotted
-        - peaks_list: List of floats containing theoretical DM given by the user
-        - column_name: String with name of the column plotted
-        - df: Dataframe object containing the histogram
-    Return:
-        - [pi]: List containing the modified plot
-    '''
-
-    min_value = np.min(df.df.loc[:, column_name])
-    min_value = min_value - abs(0.1*min_value)
-    max_value = np.max(df.df.loc[:, column_name])*1.1
-
-    # y_axis = np.arange(min_value, max_value)
-    y_axis = (min_value, 0, max_value)
-    for peak, peak_name in peaks_list:
-        x_axis = np.ones_like(y_axis)*peak
-        pi.line(x_axis, y_axis, line_color='green', line_width=2, name=peak_name)
-    
-    return [pi]
-
-
-def iniMaker(filename, plot_letters, letter_to_colInfo):
-    '''
-
-    '''
-
-    config.set('Parameters', 'Infile', str(args.infile))
-    config.set('Parameters', 'Peaks', str(args.tDM))
-
-    config.set('Plots', 'frequency', str('A' in plot_letters))
-    config.set('Plots', 'smooth_frequency', str('B' in plot_letters))
-    config.set('Plots', 'slope1', str('C' in plot_letters))
-    config.set('Plots', 'slope2', str('D' in plot_letters))
-
-    if letter_to_colInfo['A']['Threshold']:
-        config.set('Thresholds', 'frequency_T', str(letter_to_colInfo['A']['Threshold'][0]))
-    else:
-        config.set('Thresholds', 'frequency_T', '0')
-
-    if letter_to_colInfo['B']['Threshold']:
-        config.set('Thresholds', 'smooth_frequency_T', str(letter_to_colInfo['B']['Threshold'][0]))
-    else:
-        config.set('Thresholds', 'smooth_frequency_T', '0')
-
-    if letter_to_colInfo['C']['Threshold']:
-        config.set('Thresholds', 'slope1_T1', str(letter_to_colInfo['C']['Threshold'][0]))
-    else:
-        config.set('Thresholds', 'slope1_T1', '0')
-
-    if len(letter_to_colInfo['C']['Threshold']) == 2:
-        config.set('Thresholds', 'slope1_T2', str(letter_to_colInfo['C']['Threshold'][1]))
-    else:
-        config.set('Thresholds', 'slope1_T2', '0')
-
-    if letter_to_colInfo['D']['Threshold']:
-        config.set('Thresholds', 'slope2_T1', str(letter_to_colInfo['D']['Threshold'][0]))
-    else:
-        config.set('Thresholds', 'slope2_T1', '0')
-
-    if len(letter_to_colInfo['D']['Threshold']) == 2:
-        config.set('Thresholds', 'slope2_T2', str(letter_to_colInfo['D']['Threshold'][1]))
-    else:
-        config.set('Thresholds', 'slope2_T2', '0')
-
-    ini_path = os.path.join(os.path.dirname(args.infile), filename[:-5] + '.ini')
-
-    with open(ini_path, 'w') as newconfig:
-        logging.info(f"Saving .ini: {ini_path}")
-        config.write(newconfig)
-
-
-
-def savePlot(plot, plot_letters, letter_to_colInfo):
-    '''
-    Input:
-        - plot: Bokeh plot to be saved
-        - plot_letters: List of strings containing the letters associated to the plotted graphs
-        - letter_to_colInfo: Dictionary that associates each letter to the plot information
-    '''
-
-    # Build filename: 
-    filename = '_'.join([letter_to_colInfo[letter]['ColumnName'] + '_' + '_'.join([str(int(thr)) for thr in letter_to_colInfo[letter]['Threshold']]) \
-        for letter in plot_letters])
-    
-    filename += '.html'
-    filename = filename.replace('__', '_')
-    filename = filename.replace('-', 'm')
-
-    filename = os.path.join(os.path.dirname(args.infile), filename)
-
-    save(plot, filename=filename)
-    logging.info(f"Graph saved: {filename}")
-
-    # Create ini associated to this plot
-    if config.getint('Logging', 'create_ini'):
-        iniMaker(filename, plot_letters, letter_to_colInfo)
-
-
-def plot_graphs(plot_letters, letter_to_colInfo, df, peaks_list):
-    '''
-    Function used to make all plots. The first plot will receive a different
-    treatment than the others
-    Input:  plot_letters: list of letters selected by the user
-            letter_to_colInfo: Dictionary with the information of each plot
-            df: Dataframe with all data
-    '''
-    
-    log_str = 'Plotting the following graphs: ' + ", ".join([letter_to_colInfo[letter]['Name'] for letter in plot_letters])
-    logging.info(log_str)
-
-    output_file(df.path + '_plot.html')
-
-    # Extract information from the first plot
-    first_plot_name = letter_to_colInfo[plot_letters[0]]['Name']
-    first_plot_color = letter_to_colInfo[plot_letters[0]]['Color']
-    #first_plot_index = letter_to_colInfo[plot_letters[0]]['Index']
-    
-    first_plot_column_name = letter_to_colInfo[plot_letters[0]]['ColumnName']
+def addPlotsToFigure(figure, section):
+    """
+    Add lines or scatter to the figure
+    """
 
     try:
-        first_plot_index = np.where(df.df.columns == first_plot_column_name)[0][0]
-
-    except IndexError:
-        logging.info(f"Error: {first_plot_column_name} column was not found. Is it correctly written?")
-        return 0
-
-    
-    # Build the first plot
-    p1 = figure(title=first_plot_name + " representation",\
-         x_axis_label='Delta mass', y_axis_label=first_plot_name,\
-         width=1300, height=400, tools = "pan,xzoom_in,xzoom_out,ywheel_zoom,box_zoom,reset,save,undo,hover", tooltips=[('Name', '$name')])
-
-    try:
-        p1.xaxis.ticker.desired_num_ticks = 30
+        figure.xaxis.ticker.desired_num_ticks = 30
 	
     except AttributeError as err:
         logging.info(f"AttributeError: {err}")
         print("bokeh package needs to be updated (pip install bokeh -U)")
         sys.exit()
 
-    p1.line(df.df.iloc[:, 1], df.df.iloc[:, first_plot_index], line_width=2, color=first_plot_color, name=first_plot_name)
+
+    for i, column in enumerate(plotObject.plots[section]["columns"]):
+
+        # assert that it is present in dataframe
+        if column not in plotObject.data.columns:
+            logging.info(f"Column not found: {column}")
+            continue
+        
+
+        # get boolean with rows without na. Only those will be plotted
+        bool_not_na = (~pd.isna(plotObject.data.loc[:, column])).to_list()
+
+        if re.search(r"^line$", plotObject.plots[section]['plotType'][i], re.IGNORECASE):
+            # If line...
+            figure.line(plotObject.data.loc[bool_not_na, plotObject.plots[section]['x_axis']],
+                        plotObject.data.loc[bool_not_na, column],
+                        line_width=2,
+                        color=d3['Category20'][20][plotObject.color],
+                        legend_label=column,
+                        name = column)
+
+        elif re.search(r"^scatter$", plotObject.plots[section]['plotType'][i], re.IGNORECASE):
+            # If scatter...
+            figure.circle(plotObject.data.loc[bool_not_na, plotObject.plots[section]['x_axis']],
+                        plotObject.data.loc[bool_not_na, column],
+                        size=6,
+                        color=d3['Category20'][20][plotObject.color],
+                        legend_label=column,
+                        name = column)
+        
+        # Change color for the next plot
+        plotObject.color += 2 if plotObject.color < 18 else 17
+    
+    # plot threshold
+    figure = plot_threshold(figure, section)
+
+    # plot peaks of interest
+    figure = plot_pleak(figure, section)
+
+    return figure
+
+
+def plot_graphs():
+    '''
+    Genera function for plotting graphs
+    '''
+    
+    logging.info('Plotting graphs')
+
+    # Save graphs in html file
+    output_file(os.path.splitext(plotObject.path)[0] + '_plot.html')
+    
+    # Build the first plot
+    p1 = figure(title="Plot 1",\
+         x_axis_label=plotObject.plots[plotObject.plotSections[0]]['x_axis'],\
+         width=1300, height=400, tools = "pan,xzoom_in,xzoom_out,ywheel_zoom,box_zoom,reset,save,undo,hover", tooltips=[('Name', '$name')])
+    
+    p1 = addPlotsToFigure(p1, plotObject.plotSections[0])
 
     # If there are more plots, these are represented below using plot_bottom_graph function
-    if len(plot_letters) > 1:
+    if plotObject.nPlots > 1:
 
-        bottom_graphs_list = [[plot_bottom_graph(p1, letter, letter_to_colInfo, df)] for letter in plot_letters[1:]]
+        bottom_graphs_list = [[plot_bottom_graph(p1, section)] for section in plotObject.plotSections[1:]]
         bottom_graphs_list = [plot for plot in bottom_graphs_list if plot != [""]]
 
         all_graphs_list = [[p1]] + bottom_graphs_list
 
-        # Plot threshold
-        logging.info("Plotting thresholds")
-        all_graphs_list = [plot_threshold(pi[0], letter_to_colInfo[letter]['Threshold'], df) \
-            for letter, pi in zip(plot_letters, all_graphs_list)]
-        
-        logging.info("Plotting theoretical DM")
-        all_graphs_list = [plot_pleak(pi[0], peaks_list, letter_to_colInfo[letter]['ColumnName'], df) \
-            for letter, pi in zip(plot_letters, all_graphs_list)]
-
         # Show the plot
         plot = gridplot(all_graphs_list)
         show(plot)
-        savePlot(plot, plot_letters, letter_to_colInfo)
+        # savePlot(plot)
 
-    else:
-        logging.info("Plotting threshold")
-        plot_threshold(p1, letter_to_colInfo[plot_letters[0]]['Threshold'], df)
-
-        logging.info("Plotting theoretical DM")
-        plot_pleak(p1, peaks_list, letter_to_colInfo[plot_letters[0]]['ColumnName'], df)
-
+    else: 
         show(p1)
-        savePlot(p1, plot_letters, letter_to_colInfo)
+
     
     
     logging.info('Graphs plotted')
 
     return 0
-
-
-def parse_entry_threshold(entry_list):
-    '''
-    Function used to parse threshold values introduced by the user
-    '''
-
-    return [float(entry.get()) for entry in entry_list if entry.get().lower() not in ['', 'none']]
-
-
-def getPeaks(peaks_str):
-    '''
-    Input:
-        - peaks_str: String containing the theoretical DM given by the user
-    Return:
-        - peaks_list: List of pairs. The first element of each pair is a float with the theoretical DM and the
-        second element is its associated name
-    '''
-
-    peaks_str += '\n' if peaks_str[-1] != '\n' else peaks_str
-
-    match = re.search(r'(-?\d+(?:\.\d*)?)(?:\n|(?:\s*,\s*|\s+)([^\n]*)\n)', peaks_str)
-    peaks_list = []
     
-    while match:
-        # List of double containing m/z and name. If there is no name it stores "NA"
-        peak_tmp = [float(match.groups()[0])]
-        peak_tmp.append("NA") if not match.groups()[1] else peak_tmp.append(match.groups()[1])
-        # Add pair to peak_list object
-        peaks_list.append(peak_tmp) 
 
-        # recompose peaks_str and apply re.search
-        peaks_str = peaks_str[match.span()[1]:]
-        match = re.search(r'(-?\d+(?:\.\d*)?)(?:\n|(?:\s*,\s*|\s+)([^\n]*)\n)', peaks_str)
+####################
+####################
+## GUI functions ##
+####################
+####################
 
-    return peaks_list
+def showTab(root, container):
+    """
+    GUI Tab to customize plot
+    Columns showed are taken from dataframe
+    """
+    # Trial with one extra plottab
+    trialTab = tk.Frame(container)
+    trialTab.grid(row=0, column=0, sticky="nsew")
+
+    label_TT_1 = tk.Label(trialTab, text=f"Plot {plotObject.presentPlot}", font=("comicsans", 16))
+    label_TT_1.pack(side="top", fill="x", pady=10) 
+
+    # Get column names with float or integers
+    column_names = [col for col in plotObject.data.columns if pd.api.types.is_numeric_dtype(plotObject.data.loc[:, col])]
+
+    ########################
+    # USER PLOTS SELECTION #
+    ########################
+
+    font_selections = ("comicsans", 10)
+    checkbox_x = 100
+    checkbox_y  = 130
+
+    label_TT_12 = tk.Label(trialTab, text="Select columns to be plotted", font=("comicsans", 12))
+    label_TT_12.place(relx=0.30, y=checkbox_y-70)
+
+    label_TT_13 = tk.Label(trialTab, text="X", font=("comicsans", 11))
+    label_TT_13.place(x=checkbox_x-6, y=checkbox_y-30)
+
+    label_TT_14 = tk.Label(trialTab, text="Y", font=("comicsans", 11))
+    label_TT_14.place(x=checkbox_x+34, y=checkbox_y-30)
+
+    label_TT_15 = tk.Label(trialTab, text="Column", font=("comicsans", 11))
+    label_TT_15.place(x=checkbox_x+68, y=checkbox_y-30)
+
+    # Loop over each possible column, to show buttons...
+    # store user selection in a dictionary of dictionaries. Each one stores column info
+    user_selection = {'x_axis': tk.StringVar(value='midpoint'), 'y_axis': {}}
+
+    for i, col in enumerate(column_names):
+        user_selection['y_axis'][col] = {
+            'selected': tk.BooleanVar(), 
+            'type':tk.StringVar(value='line')
+            }
+
+        # Radio Button X axis #
+        radioButton = tk.Radiobutton(trialTab, variable=user_selection['x_axis'], value=col, font=font_selections)
+        radioButton.pack()
+        radioButton.place(x=checkbox_x-10, y=checkbox_y+30*i)
+
+        # CheckBox Y axis #
+        col_check = tk.Checkbutton(trialTab, text=f"    {col}", var=user_selection['y_axis'][col]['selected'], font=font_selections)
+        col_check.place(x=checkbox_x+30, y=checkbox_y+30*i)
+
+        # Radio Button Line #
+        radioButton_1 = tk.Radiobutton(trialTab, text="Line", variable=user_selection['y_axis'][col]['type'], value='line', font=font_selections)
+        radioButton_1.pack()
+        radioButton_1.place(x=checkbox_x+160, y=checkbox_y+30*i)
+
+        # Radio Button Scatter #
+        radioButton_2 = tk.Radiobutton(trialTab, text="Scatter", variable=user_selection['y_axis'][col]['type'], value='scatter', \
+            font=font_selections)
+        radioButton_2.pack()
+        radioButton_2.place(x=checkbox_x+220, y=checkbox_y+30*i)
 
 
-
-def click_plot_buttom(letter_to_colInfo, df, freq, smooth_freq, s1, s2, freq_entry, smooth_freq_entry,\
-    s1_entry1, s1_entry2, s2_entry1, s2_entry2, peaks):
-    '''
-    Function executed when the user press the buttom Plot. It receives all parameters required to plot
-    '''
-
-    all_entries = [[freq_entry], [smooth_freq_entry], [s1_entry1, s1_entry2], [s2_entry1, s2_entry2]]
-
-    plot_letters = [letter for letter, bool_plot in zip(['A', 'B', 'C', 'D'], \
-        [freq.get(), smooth_freq.get(), s1.get(), s2.get()]) if bool_plot]
-
-    [letter_to_colInfo[letter].update({'Threshold': parse_entry_threshold(entry_list)})\
-         for letter, entry_list in zip(['A', 'B', 'C', 'D'], all_entries)]
-
-    # Get theoretical DM given by the user
-    peaks_list = getPeaks(peaks)
-    
-    plot_graphs(plot_letters, letter_to_colInfo, df, peaks_list)
-
-
-
-##################
-# Main functions #
-##################
-
-def main(args):
-    '''
-    Main function
-    '''
-
-    # Read infile
-    df_object = Histogram_Class()
-
-    if args.infile:
-        df_object.ReadFromPath(args.infile)
-    
-    # Create a dictionary used to store parameters associated to each plot
-    letter_to_colInfo = {'A': {'ColumnName': 'count', 'Index': 2, 'Name': 'Frequency', 'Color': 'navy', 'Threshold': []},\
-                         'B': {'ColumnName': 'smooth_count', 'Index': 3, 'Name': 'Smooth Frequency', 'Color': 'steelblue', 'Threshold': []},\
-                         'C': {'ColumnName': 'slope1', 'Index': 4, 'Name': 'Slope 1', 'Color': 'firebrick', 'Threshold': []},\
-                         'D': {'ColumnName': 'slope2', 'Index': 5, 'Name': 'Slope 2', 'Color': 'salmon', 'Threshold': []}}
-    
-    
-    # Create GUI using tkinter
-    window = tk.Tk()
-    window.title("PeakInspector")
-    window.geometry('400x350')
-
-    # Create Menu to import file
-    menu = tk.Menu(window)
-    new_item = tk.Menu(menu)
-    new_item.add_command(label='Open', command=df_object.ReadFromGUI)
-    menu.add_cascade(label='File', menu=new_item)
-
-    window.config(menu=menu)
-
-    # Create first section, that enables plot selection
-    lbl = tk.Label(window, text="Select Data to Plot", font=("comicsans", 10))
-    lbl.place(x=5, y=5)
-
-    frequency_check_state = tk.BooleanVar()
-    frequency_check_state.set(args.f)
-    frequency_check = tk.Checkbutton(window, text=' Frequency', var=frequency_check_state, font=("comicsans", 10))
-    frequency_check.place(x=25, y=30)
-
-    smooth_frequency_check_state = tk.BooleanVar()
-    smooth_frequency_check_state.set(args.sf)
-    smooth_frequency_check = tk.Checkbutton(window, text=' Smooth Frequency', var=smooth_frequency_check_state, font=("comicsans", 10))
-    smooth_frequency_check.place(x=25, y=60)
-
-    slope1_check_state = tk.BooleanVar()
-    slope1_check_state.set(args.s1)
-    slope1_check = tk.Checkbutton(window, text=' Slope 1', var=slope1_check_state, font=("comicsans", 10))
-    slope1_check.place(x=25, y=90)
-
-    slope2_check_state = tk.BooleanVar()
-    slope2_check_state.set(args.s2)
-    slope2_check = tk.Checkbutton(window, text=' Slope 2', var=slope2_check_state, font=("comicsans", 10))
-    slope2_check.place(x=25, y=120)
+    #############################
+    # USER THRESHOLDS SELECTION #
+    #############################
+    y_label = checkbox_y+30*len(column_names) + 20
+    y_entry = y_label + 30
 
     # Create second section with entry spaces to introduce thresholds
-    lbl2 = tk.Label(window, text="Define Thresholds (e.g. 5e3)", font=("comicsans", 10))
-    lbl2.place(x=5, y=180)
+    label_TT_2 = tk.Label(trialTab, text="Define Thresholds (e.g. 5e3)", font=("comicsans", 11))
+    label_TT_2.place(relx=0.3, y=y_label)
+  
 
-    # Frequency entry
-    lbl2_freq = tk.Label(window, text="Frequency", font=("comicsans", 10))
-    lbl2_freq.place(x=5, y=210)
+    # Threshold 1 #
+    ###############
 
-    lbl2_freq_entry = tk.Entry(window, width=10)
-    lbl2_freq_entry.place(x=5, y=230)
+    label_threshold_1 = tk.Label(trialTab, text="Threshold 1", font=font_selections)
+    label_threshold_1.place(relx=0.3, y=y_label+30)
 
-    lbl2_freq_entry.insert(tk.END, args.fT)
+    threshold_entry1 = tk.Entry(trialTab, width=10, justify="center")
+    threshold_entry1.place(relx=0.5, y=y_label+30)
 
-    # Smooth Frequency entry
-    lbl2_smooth_freq = tk.Label(window, text="Smooth Frequency", font=("comicsans", 10))
-    lbl2_smooth_freq.place(x=95, y=210)
-
-    lbl2_smooth_freq_entry = tk.Entry(window, width=10)
-    lbl2_smooth_freq_entry.place(x=95, y=230)
-
-    lbl2_smooth_freq_entry.insert(tk.END, args.sfT)
-
-    # Slope 1 entry
-    lbl2_slope1 = tk.Label(window, text="Slope 1", font=("comicsans", 10))
-    lbl2_slope1.place(x=225, y=210)
-
-    lbl2_slope1_entry1 = tk.Entry(window, width=10)
-    lbl2_slope1_entry1.place(x=225, y=230)
-
-    lbl2_slope1_entry1.insert(tk.END, args.s1T1)
-
-    lbl2_slope1_entry2 = tk.Entry(window, width=10)
-    lbl2_slope1_entry2.place(x=225, y=250)
-
-    lbl2_slope1_entry2.insert(tk.END, args.s1T2)
-
-
-    # Slope 2 entry
-    lbl2_slope2 = tk.Label(window, text="Slope 2", font=("comicsans", 10))
-    lbl2_slope2.place(x=315, y=210)
-
-    lbl2_slope2_entry1 = tk.Entry(window, width=10)
-    lbl2_slope2_entry1.place(x=315, y=230)
-
-    lbl2_slope2_entry1.insert(tk.END, args.s2T1)
-
-
-    lbl2_slope2_entry2 = tk.Entry(window, width=10)
-    lbl2_slope2_entry2.place(x=315, y=250)
-
-    lbl2_slope2_entry2.insert(tk.END, args.s2T2)
-
-
-    # Create Plot buttom
-    plot_btn = tk.Button(window, text="Plot", command=lambda: click_plot_buttom(letter_to_colInfo, df_object,\
-            frequency_check_state, smooth_frequency_check_state, slope1_check_state, slope2_check_state, \
-            lbl2_freq_entry, lbl2_smooth_freq_entry, lbl2_slope1_entry1, lbl2_slope1_entry2, lbl2_slope2_entry1,\
-            lbl2_slope2_entry2, args.tDM))
-    plot_btn.place(x=5, y=290)
-
-
-    # If parameters -f, -sf, -s1 or -s2 were used in the execution, the plot is shown. It is as if plot button
-    # was pressed
-    if any([args.f, args.sf, args.s1, args.s2]) and args.infile:
-
-        click_plot_buttom(letter_to_colInfo, df_object,\
-                frequency_check_state, smooth_frequency_check_state, slope1_check_state, slope2_check_state, \
-                lbl2_freq_entry, lbl2_smooth_freq_entry, lbl2_slope1_entry1, lbl2_slope1_entry2, lbl2_slope2_entry1,\
-                lbl2_slope2_entry2, args.tDM)
-
-    window.mainloop()
-
-    return 0
     
+    # Threshold 2 #
+    ###############
+
+    label_threshold_2 = tk.Label(trialTab, text="Threshold 2", font=font_selections)
+    label_threshold_2.place(relx=0.3, y=y_label+60)
+
+    threshold_entry2 = tk.Entry(trialTab, width=10, justify="center")
+    threshold_entry2.place(relx=0.5, y=y_label+60)
+
+    ################
+    # PLOT OR NEXT #
+    ################
+
+    if plotObject.nPlots == plotObject.presentPlot:
+        # if it is the last plot, show "Plot" option
+        plot_button = tk.Button(trialTab, text="Plot", font=font_selections, pady=5, padx=10, bd=2,
+                                command=lambda: moveToPlot(root, container, user_selection, threshold_entry1.get(), threshold_entry2.get()))
+        plot_button.pack()
+        plot_button.place(relx=0.40, y=y_label+100, height=40, width=120)
     
+    else:
+        # else, show "Next" option
+        plot_button = tk.Button(trialTab, text="Next", font=font_selections, pady=5, padx=10, bd=2,
+                                command=lambda: moveToNext(root, container, user_selection, threshold_entry1.get(), threshold_entry2.get()))
+        plot_button.pack()
+        plot_button.place(relx=0.40, y=y_label+100, height=40, width=120)
+
+    trialTab.tkraise()
+
+
+def moveToPlot(root, container, user_selection, threshold_entry1, threshold_entry2):
+    """
+    Plot button was pressed...
+    """
+    # Store in plotObject user parameters
+    plotObject.guiSelection(user_selection, threshold_entry1, threshold_entry2)
+   
+    # plot graphs
+    plot_graphs()
+
+    # show main
+    showMain(root, container)
+
+
+def moveToNext(root, container, user_selection, threshold_entry1, threshold_entry2):
+    """
+    Store user selected parameters and show
+    next tab
+    """
+    # Store in plotObject user parameters
+    plotObject.guiSelection(user_selection, threshold_entry1, threshold_entry2)
+    
+    # Show next tab
+    plotObject.presentPlot += 1
+    showTab(root, container)
+
+
+def showMain(root, container):
+    """
+    Home tab
+    """
+    # reset plotObject
+    plotObject.reset()
+
+    firstTab = tk.Frame(container)
+    firstTab.grid(row=0, column=0, sticky="nsew")
+    
+    label_FT_1 = tk.Label(firstTab, text="PeakInspector", font=('Helvetica', 18))
+    label_FT_1.pack(side="top", fill="x", pady=15)
+
+    # Number of plots #
+    label_FT_1 = tk.Label(firstTab, text="Enter number of plots", font=root.title_font)
+    label_FT_1.pack(side="top", fill="x", pady=10)
+    
+    entry_FT_1 = tk.Entry(firstTab, width=3, justify="center")
+    entry_FT_1.pack()
+
+    # Input File #
+    label_FT_1 = tk.Label(firstTab, text="Select Input Table", font=root.title_font)
+    label_FT_1.pack(side="top", fill="x", pady=20)
+
+    button_FT_1 = tk.Button(firstTab, text="Click to select file", command=lambda: plotObject.getPathFromGUI(firstTab))
+    button_FT_1.pack()
+    button_FT_1.place(x=200, y=180)
+
+    # File with peaks #
+    label_FT_1 = tk.Label(firstTab, text="Select Peak File", font=root.title_font)
+    label_FT_1.pack(side="top", fill="x", pady=60)
+
+    button_FT_1 = tk.Button(firstTab, text="Click to select file", command=lambda: plotObject.getPeakListPathFromGUI(firstTab))
+    button_FT_1.pack()
+    button_FT_1.place(x=200, y=290)
+
+    # Go to next operation
+    button_FT_2 = tk.Button(firstTab, text="Customize Plots", pady=5, width=20,
+                            command=lambda: startCustom(entry_FT_1.get(), root, container))
+    button_FT_2.pack()
+    button_FT_2.place(x=175, y=390)
+
+    firstTab.tkraise()
+
+
+def isNumber(entry):
+    """
+    If user entered a number (number of plots), it is accepted
+    """
+    if re.search("^[1-5]$", entry):
+        return True
+    else:
+        return False
+
+
+def startCustom(nPlots, root, container):
+    """
+    If user entered a number, go to next plot
+    """
+    if isNumber(nPlots) and plotObject.read:
+        plotObject.nPlots = int(nPlots)
+        plotObject.presentPlot += 1
+        showTab(root, container)
+
+
+def startGUI():
+    '''
+    Execution using GUI
+    '''
+
+    ###############
+    # CREATE ROOT #
+    ###############
+
+    root = tk.Tk(className="PeakInspector")
+    root.title_font = tkfont.Font(family='Helvetica', size=12)
+    root.geometry("500x550")
+    root.frames = {}
+
+    ##################
+    # MAIN CONTAINER #
+    ##################
+
+    container = tk.Frame(root)
+    container.pack(side="top", fill="both", expand=True)
+    container.grid_rowconfigure(0, weight=1)
+    container.grid_columnconfigure(0, weight=1)
+
+    # Main Page #
+    #############
+    showMain(root, container)
+
+    root.mainloop()
+
+
+####################
+####################
+## Main functions ##
+####################
+####################
+
+def main(args):
+    """
+    main function
+    """
+
+    if args.gui:
+        # if user selected gui, execute it...
+        startGUI()
+    
+    else:
+        # otherwise, get values from config.ini
+        
+        # read dataframe
+        plotObject.readData(args.infile)
+        
+        # get peaks of interest
+        plotObject.getPeaks(args.peaks)
+
+        plotObject.readPlotsFromConfig(config)
+        plot_graphs()
+
+
 
 if __name__ == '__main__':
 
@@ -531,26 +611,10 @@ if __name__ == '__main__':
     defaultconfig = os.path.join(os.path.dirname(__file__), "config/PeakInspector.ini")
 
     parser.add_argument('-i', '--infile', help='Path to input file', type=str)
+    parser.add_argument('-p', '--peaks', help='Path to peaks list', type=str)
     parser.add_argument('-c', '--config', default=defaultconfig, help='Path to custom config.ini file', type=str)
-
     parser.add_argument('-v', dest='verbose', action='store_true', help='Increase output verbosity')
-
-    # Arguments to set which data is plotted
-    parser.add_argument('-f', action='store_true', help='Plot frequency data')
-    parser.add_argument('-sf', action='store_true', help='Plot smooth frequency data')
-    parser.add_argument('-s1', action='store_true', help='Plot slope 1 data')
-    parser.add_argument('-s2', action='store_true', help='Plot slope 2 data')
-
-    # Arguments to set thresholds
-    parser.add_argument('-fT', default='', help='Define threshold for frequency plot', type=str)
-    parser.add_argument('-sfT', default='', help='Define threshold for smooth frequency plot', type=str)
-    parser.add_argument('-s1T1', default='', help='Define threshold 1 for slope 1 plot', type=str)
-    parser.add_argument('-s1T2', default='', help='Define threshold 2 for slope 1 plot', type=str)
-    parser.add_argument('-s2T1', default='', help='Define threshold 1 for slope 2 plot', type=str)
-    parser.add_argument('-s2T2', default='', help='Define threshold 2 for slope 2 plot', type=str)
-
-    # Arguments to set theoretical DM
-    parser.add_argument('-tDM', default='', help='Set theoretical DM peaks to be plotted (e.g. "0.98, 100")', type=str)
+    parser.add_argument('-gui', action='store_true', help='Read data from GUI', default=False)
 
     args = parser.parse_args()
 
@@ -558,56 +622,12 @@ if __name__ == '__main__':
     if args.config:
         config  = configparser.ConfigParser(inline_comment_prefixes='#')
         config.read(args.config)
-        
-        
-    if not args.f and config['Plots']['frequency'].lower().strip() == 'true':
-        args.f = config['Plots']['frequency']
-        config.set('Logging', 'create_ini', '1')
-        
-    if not args.sf and config['Plots']['smooth_frequency'].lower().strip() == 'true':
-        args.sf = config['Plots']['smooth_frequency']
-        config.set('Logging', 'create_ini', '1')
-
-    if not args.s1 and config['Plots']['slope1'].lower().strip() == 'true':
-        args.s1 = config['Plots']['slope1']
-        config.set('Logging', 'create_ini', '1')
-
-    if not args.s2 and config['Plots']['slope2'].lower().strip() == 'true':
-        args.s2 = config['Plots']['slope2']
-        config.set('Logging', 'create_ini', '1')
-
-    if not args.fT:
-        args.fT = config['Thresholds']['frequency_T']
-        config.set('Logging', 'create_ini', '1')
-
-    if not args.sfT:
-        args.sfT = config['Thresholds']['smooth_frequency_T']
-        config.set('Logging', 'create_ini', '1')
-
-    if not args.s1T1:
-        args.s1T1 = config['Thresholds']['slope1_T1']
-        config.set('Logging', 'create_ini', '1')
-
-    if not args.s1T2:
-        args.s1T2 = config['Thresholds']['slope1_T2']
-        config.set('Logging', 'create_ini', '1')
-
-    if not args.s2T1:
-        args.s2T1 = config['Thresholds']['slope2_T1']
-        config.set('Logging', 'create_ini', '1')
-
-    if not args.s2T2:
-        args.s2T2 = config['Thresholds']['slope2_T2']
-        config.set('Logging', 'create_ini', '1')
 
     if not args.infile:
-        args.infile = config['Parameters']['Infile']
-        config.set('Logging', 'create_ini', '1')
-
-    if not args.tDM:
-        args.tDM = config['Parameters']['Peaks']
-        config.set('Logging', 'create_ini', '1')
-        
+        args.infile = config['Parameters']['infile']
+    
+    if not args.peaks:
+        args.peaks = config['Parameters']['peaksList']
 
     # logging debug level. By default, info level
     if args.infile:
@@ -632,6 +652,9 @@ if __name__ == '__main__':
                             handlers=[logging.FileHandler(log_file),
                                       logging.StreamHandler()])
     
+
+    # global plot object
+    plotObject = PlotObject()
 
     # start main function
     logging.info('start script: '+"{0}".format(" ".join([x for x in sys.argv])))
