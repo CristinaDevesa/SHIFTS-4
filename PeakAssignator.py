@@ -21,7 +21,6 @@ import re
 import pandas as pd
 import concurrent.futures
 from itertools import repeat
-import tables
 import numpy as np
 pd.options.mode.chained_assignment = None  # default='warn'
 
