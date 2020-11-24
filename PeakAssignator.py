@@ -106,7 +106,7 @@ def bin_operations(df, apex_list, ppm_max, peak_label, orphan_label,
     Main function that handles the operations by BIN
     '''
     # get the BIN value from the input tuple df=(bin,df)
-    (bin_value, df) = int(df[0]), df[1]
+    (bin_value, df) = float(df[0]), df[1]
     
     # assign to peaks
     df[col_ClosestPeak] = df.apply(lambda x: closest_peak(apex_list, x[col_CalDeltaMH]), axis = 1)
