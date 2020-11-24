@@ -76,9 +76,9 @@ def getTheoMZ(df, mzcolumn, zcolumn, seqcolumn):
                 # TODO
             if aa.lower() in MODs:
                 total_aas += float(MODs[aa.lower()])
-        MH = total_aas - (charge-1)*m_proton
+        MH = round(total_aas - (charge-1)*m_proton, 6)
         #MZ = (total_aas + int(charge)*m_proton) / int(charge)
-        MZ = total_aas / int(charge)
+        MZ = round(total_aas / int(charge), 6)
         return MZ, MH
     
     df['theo_mz'] = df.apply(lambda x: _PSMtoMZ(x[seqcolumn], x[zcolumn])[0], axis = 1)
@@ -187,8 +187,8 @@ def rawCorrection(df, mzcolumn, alpha):
         return cal_exp_mz
     
     #df['cal_exp_mz'] = df[config._sections['Input']['mzcolumn']] - sys_error
-    df['cal_exp_mz'] = df.apply(lambda x: _correct(x[mzcolumn], x['abs_error'], alpha), axis = 1)
-    df['cal_exp_mh'] = df.apply(lambda x: (x['cal_exp_mz'] * x[config._sections['DMcalibrator']['zcolumn']]) - ((x[config._sections['DMcalibrator']['zcolumn']]-1) * mass_config.getfloat('Masses', 'm_proton')), axis = 1)
+    df['cal_exp_mz'] = df.apply(lambda x: _correct(x[mzcolumn], x['abs_error'], alpha), axis = 1).round(6)
+    df['cal_exp_mh'] = df.apply(lambda x: (x['cal_exp_mz'] * x[config._sections['DMcalibrator']['zcolumn']]) - ((x[config._sections['DMcalibrator']['zcolumn']]-1) * mass_config.getfloat('Masses', 'm_proton')), axis = 1).round(6)
     return df
 
 def getDMcal(df, mzcolumn, calmzcolumn, zcolumn):
@@ -213,14 +213,14 @@ def getDMcal(df, mzcolumn, calmzcolumn, zcolumn):
         df.insert(df.columns.get_loc(calmzcolumn)+1,
                   'cal_dm_mz',
                   np.nan)
-    df['cal_dm_mz'] = df[calmzcolumn] - df['theo_mz']
+    df['cal_dm_mz'] = (df[calmzcolumn] - df['theo_mz']).round(6)
     if 'cal_dm_mh' not in df:
         df.insert(df.columns.get_loc(calmzcolumn)+1,
                   'cal_dm_mh',
                   np.nan)
     #df['cal_dm_mh'] = (df['cal_dm_mz'] * df[zcolumn]) - (df[zcolumn] * mass_config.getfloat('Masses', 'm_proton'))
     #df['cal_dm_mh'] = df.apply(lambda x: (x['cal_dm_mz'] * x[zcolumn] - (x[zcolumn] * m_proton)) if (x['cal_dm_mz'] >= 0) else (x['cal_dm_mz'] * x[zcolumn] + (x[zcolumn] * m_proton)), axis = 1)
-    df['cal_dm_mh'] = df['cal_dm_mz'] * df[zcolumn]
+    df['cal_dm_mh'] = (df['cal_dm_mz'] * df[zcolumn]).round(6)
     return df
 
 def labelTargetDecoy(df, proteincolumn, decoyprefix):
@@ -246,12 +246,15 @@ def main(args):
     zcolumn = config._sections['DMcalibrator']['zcolumn']
     mzcolumn = config._sections['DMcalibrator']['mzcolumn']
     seqcolumn = config._sections['DMcalibrator']['seqcolumn']
+    seqdmcolumn = config._sections['DMcalibrator']['seqdmcolumn']
     #dmcolumn = config._sections['DMcalibrator']['dmcolumn']
     proteincolumn = config._sections['DMcalibrator']['proteincolumn']
     decoyprefix = config._sections['DMcalibrator']['decoyprefix']
     abscolumn = 'abs_error'
     calabscolumn = 'cal_dm_mh'
     calmzcolumn = 'cal_exp_mz'
+    calseqcolumn = config._sections['DMcalibrator']['calseqcolumn']
+    decimal_places = int(config._sections['DMcalibrator']['decimal_places'])
     
     log_str = "Calibrating file: " + str(Path(args.infile))
     logging.info(log_str)
@@ -300,6 +303,10 @@ def main(args):
     cal_sys_error, cal_alpha, avg_ppm_error = getSysError(df_filtered, mzcolumn, 1)
     # Calculate DMCal 
     df = getDMcal(df, mzcolumn, calmzcolumn, zcolumn)
+    # Make calseqcolumn
+    df.insert(df.columns.get_loc(seqdmcolumn)+1, calseqcolumn, np.nan)
+    #df[calseqcolumn] = df[seqdmcolumn].split('[')[0] + '[' + str(round(df['cal_dm_mh'], decimal_places)) + ']' + df[seqdmcolumn].split(']')[1]
+    df[calseqcolumn] = df.apply(lambda x: x[seqdmcolumn].split('[')[0] + '[' + str(round(x['cal_dm_mh'], decimal_places)) + ']' + x[seqdmcolumn].split(']')[1], axis = 1)
     #Write to txt file
     logging.info("Writing output file...")
     outfile = args.infile[:-4] + '_calibrated.txt'
