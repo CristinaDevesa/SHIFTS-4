@@ -22,6 +22,7 @@ import os
 import pandas as pd
 import sys
 import math
+pd.options.mode.chained_assignment = None  # default='warn'
 
 # TODO recom parameter: if no recom column specified, proceed without spire FDR
 
@@ -190,7 +191,7 @@ def get_local_FDR(df, score_column, recom_data):
     df['LocalFDR'] = df['Local_Rank_D']/df['Local_Rank_T']
     return df
 
-def get_global_FDR(df, score_column, recom_data, peak_label, col_Peak, closestpeak_column, n_workers):
+def get_global_FDR(df, score_column, recom_data, peak_label, col_Peak, closestpeak_column, dm_column, dm_region_limit, n_workers):
     '''
     Calculate global FDR
     '''
@@ -202,18 +203,30 @@ def get_global_FDR(df, score_column, recom_data, peak_label, col_Peak, closestpe
     #     df.sort_values(by=['Xcor', 'Label'], inplace=True, ascending=False)
     # else: # by Comet cXcorr
     #     df.sort_values(by=['CorXcor', 'Label'], inplace=True, ascending=False) # TODO: Fix SHIFTS cXcorr
-    df.sort_values(by=[score_column, 'Label'], inplace=True, ascending=False)
-        
-    # count targets and decoys
-    df['Rank'] = df.groupby('Label').cumcount()+1 # This column can be deleted later
-    df['Global_Rank_T'] = np.where(df['Label']=='Target', df['Rank'], 0)
-    df['Global_Rank_T'] = df['Global_Rank_T'].replace(to_replace=0, method='ffill')
-    df['Global_Rank_D'] = np.where(df['Label'] == 'Decoy', df['Rank'], 0)
-    df['Global_Rank_D'] =  df['Global_Rank_D'].replace(to_replace=0, method='ffill')
-    df.drop(['Rank'], axis = 1, inplace = True)
     
-    # calculate global FDR
-    df['GlobalFDR'] = df['Global_Rank_D']/df['Global_Rank_T']
+    #### TODO: make two regions separated by dm_region_limit ####
+    #df.sort_values(by=[dm_column], inplace=True)
+    #df.reset_index(drop=True, inplace=True)
+    df_below =  df.loc[df[dm_column] < dm_region_limit]
+    df_above = df.loc[df[dm_column] >= dm_region_limit]
+    df_list = [df_below, df_above]
+    #############################################################
+    
+    for each_df in df_list:
+        each_df.sort_values(by=[score_column, 'Label'], inplace=True, ascending=False)
+            
+        # count targets and decoys
+        each_df['Rank'] = each_df.groupby('Label').cumcount()+1 # This column can be deleted later
+        each_df['Global_Rank_T'] = np.where(each_df['Label']=='Target', each_df['Rank'], 0)
+        each_df['Global_Rank_T'] = each_df['Global_Rank_T'].replace(to_replace=0, method='ffill')
+        each_df['Global_Rank_D'] = np.where(each_df['Label'] == 'Decoy', each_df['Rank'], 0)
+        each_df['Global_Rank_D'] =  each_df['Global_Rank_D'].replace(to_replace=0, method='ffill')
+        each_df.drop(['Rank'], axis = 1, inplace = True)
+        
+        # calculate global FDR
+        each_df['GlobalFDR'] = each_df['Global_Rank_D']/each_df['Global_Rank_T']
+    
+    df = pd.concat([df_below, df_above])
     
     # calculate local and peak FDR
     #logging.info("Calculating Local and Peak FDR for: " + experiment_value)
@@ -285,6 +298,8 @@ def main(args):
     # Main variables
     n_workers = args.n_workers
     score_column = config._sections['PeakFDRer']['score_column']
+    dm_column = config._sections['PeakFDRer']['dm_column']
+    dm_region_limit = float(config._sections['PeakFDRer']['dm_region_limit'])
     recom_data = config._sections['PeakFDRer']['recom_data']
     peak_label = config._sections['PeakAssignator']['peak_label']
     col_Peak = config._sections['PeakAssignator']['peak_column']
@@ -327,6 +342,8 @@ def main(args):
                                                                           repeat(peak_label),
                                                                           repeat(col_Peak),
                                                                           repeat(closestpeak_column),
+                                                                          repeat(dm_column),
+                                                                          repeat(dm_region_limit),
                                                                           repeat(n_workers))
     df = pd.concat(df)
     
