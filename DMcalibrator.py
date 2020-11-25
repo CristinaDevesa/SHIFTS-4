@@ -76,9 +76,9 @@ def getTheoMZ(df, mzcolumn, zcolumn, seqcolumn):
                 # TODO
             if aa.lower() in MODs:
                 total_aas += float(MODs[aa.lower()])
-        MH = round(total_aas - (charge-1)*m_proton, 6)
+        MH = total_aas - (charge-1)*m_proton
         #MZ = (total_aas + int(charge)*m_proton) / int(charge)
-        MZ = round(total_aas / int(charge), 6)
+        MZ = total_aas / int(charge)
         return MZ, MH
     
     df['theo_mz'] = df.apply(lambda x: _PSMtoMZ(x[seqcolumn], x[zcolumn])[0], axis = 1)
@@ -187,8 +187,8 @@ def rawCorrection(df, mzcolumn, alpha):
         return cal_exp_mz
     
     #df['cal_exp_mz'] = df[config._sections['Input']['mzcolumn']] - sys_error
-    df['cal_exp_mz'] = df.apply(lambda x: _correct(x[mzcolumn], x['abs_error'], alpha), axis = 1).round(6)
-    df['cal_exp_mh'] = df.apply(lambda x: (x['cal_exp_mz'] * x[config._sections['DMcalibrator']['zcolumn']]) - ((x[config._sections['DMcalibrator']['zcolumn']]-1) * mass_config.getfloat('Masses', 'm_proton')), axis = 1).round(6)
+    df['cal_exp_mz'] = df.apply(lambda x: _correct(x[mzcolumn], x['abs_error'], alpha), axis = 1)
+    df['cal_exp_mh'] = df.apply(lambda x: (x['cal_exp_mz'] * x[config._sections['DMcalibrator']['zcolumn']]) - ((x[config._sections['DMcalibrator']['zcolumn']]-1) * mass_config.getfloat('Masses', 'm_proton')), axis = 1)
     return df
 
 def getDMcal(df, mzcolumn, calmzcolumn, zcolumn):
@@ -213,14 +213,14 @@ def getDMcal(df, mzcolumn, calmzcolumn, zcolumn):
         df.insert(df.columns.get_loc(calmzcolumn)+1,
                   'cal_dm_mz',
                   np.nan)
-    df['cal_dm_mz'] = (df[calmzcolumn] - df['theo_mz']).round(6)
+    df['cal_dm_mz'] = (df[calmzcolumn] - df['theo_mz'])
     if 'cal_dm_mh' not in df:
         df.insert(df.columns.get_loc(calmzcolumn)+1,
                   'cal_dm_mh',
                   np.nan)
     #df['cal_dm_mh'] = (df['cal_dm_mz'] * df[zcolumn]) - (df[zcolumn] * mass_config.getfloat('Masses', 'm_proton'))
     #df['cal_dm_mh'] = df.apply(lambda x: (x['cal_dm_mz'] * x[zcolumn] - (x[zcolumn] * m_proton)) if (x['cal_dm_mz'] >= 0) else (x['cal_dm_mz'] * x[zcolumn] + (x[zcolumn] * m_proton)), axis = 1)
-    df['cal_dm_mh'] = (df['cal_dm_mz'] * df[zcolumn]).round(6)
+    df['cal_dm_mh'] = (df['cal_dm_mz'] * df[zcolumn])
     return df
 
 def labelTargetDecoy(df, proteincolumn, decoyprefix):
