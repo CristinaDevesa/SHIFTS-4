@@ -246,7 +246,7 @@ def main(args):
     zcolumn = config._sections['DMcalibrator']['zcolumn']
     mzcolumn = config._sections['DMcalibrator']['mzcolumn']
     seqcolumn = config._sections['DMcalibrator']['seqcolumn']
-    seqdmcolumn = config._sections['DMcalibrator']['seqdmcolumn']
+    seqdmcolumn = config._sections['General']['seqdmcolumn']
     #dmcolumn = config._sections['DMcalibrator']['dmcolumn']
     proteincolumn = config._sections['DMcalibrator']['proteincolumn']
     decoyprefix = config._sections['DMcalibrator']['decoyprefix']
@@ -254,7 +254,7 @@ def main(args):
     calabscolumn = 'cal_dm_mh'
     calmzcolumn = 'cal_exp_mz'
     calseqcolumn = config._sections['DMcalibrator']['calseqcolumn']
-    decimal_places = int(config._sections['DMcalibrator']['decimal_places'])
+    decimal_places = int(config._sections['General']['decimal_places'])
     
     log_str = "Calibrating file: " + str(Path(args.infile))
     logging.info(log_str)
