@@ -156,6 +156,9 @@ def main(args):
     col_ppm = config._sections['PeakAssignator']['ppm_column']
     peak_label = config._sections['PeakAssignator']['peak_label']
     orphan_label = config._sections['PeakAssignator']['orphan_label']
+    seqdmcolumn = config._sections['General']['seqdmcolumn']
+    assignseqcolumn = config._sections['PeakAssignator']['assignseqcolumn']
+    decimal_places = int(config._sections['General']['decimal_places'])
     
     # logging.info("get the list of files with the inputs")
     # with open(args.infile) as f:
@@ -214,6 +217,9 @@ def main(args):
     # d_h.to_csv("kk_head.tsv", sep="\t")
     # d_t.to_csv("kk_tail.tsv", sep="\t")
     
+    # Make assignseqcolumn
+    df.insert(df.columns.get_loc(seqdmcolumn)+2, assignseqcolumn, np.nan)
+    df[assignseqcolumn] = df.apply(lambda x: x[seqdmcolumn].split('[')[0] + '[' + str(round(x[col_DM], decimal_places)) + ']' + x[seqdmcolumn].split(']')[1], axis = 1)
 
     logging.info("Write output file")
     # https://towardsdatascience.com/the-best-format-to-save-pandas-data-414dca023e0d
