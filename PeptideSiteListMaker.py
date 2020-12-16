@@ -100,7 +100,7 @@ def main(file,infile1):
 
     logging.info("Writing output file")
     name = infile1[:-4]
-    df2.to_csv(name+'__PeptideSiteListMade.txt', index=False, sep='\t', encoding='utf-8')
+    df2.to_csv(name+'__PSL.txt', index=False, sep='\t', encoding='utf-8')
     
     logging.info('end script')
 
@@ -128,8 +128,8 @@ if __name__ == '__main__':
         
 
     # logging debug level. By default, info level
-    log_file = outfile = args.infile[:-4] + '__PeptideSiteListMade_log.txt'
-    log_file_debug = outfile = args.infile[:-4] + '__PeptideSiteListMade_log_debug.txt'
+    log_file = outfile = args.infile[:-4] + '__PSL_log.txt'
+    log_file_debug = outfile = args.infile[:-4] + '__PSL_log_debug.txt'
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s - %(levelname)s - %(message)s',
