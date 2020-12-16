@@ -144,7 +144,7 @@ def main(solverconfig,infile):
     # write outputfile
     logging.info("Writing output file")
 
-    outfilename = infile1[:-4]+"_DM0Solved"
+    outfilename = infile1[:-4]+"_DS"
     outfile= outfilename+".txt"
     df.to_csv(outfile, index=False, sep='\t', encoding='utf-8')
 
@@ -190,8 +190,8 @@ if __name__ == '__main__':
             config.write(newconfig)
         
     # logging debug level. By default, info level
-    log_file = outfile = args.infile[:-4] + '_DM0Solved_log.txt'
-    log_file_debug = outfile = args.infile[:-4] + '_DM0Solved_log_debug.txt'
+    log_file = outfile = args.infile[:-4] + '_DS_log.txt'
+    log_file_debug = outfile = args.infile[:-4] + '_DS_log_debug.txt'
     if args.verbose:
         logging.basicConfig(level = logging.DEBUG,
                             format = '%(asctime)s - %(levelname)s - %(message)s',
