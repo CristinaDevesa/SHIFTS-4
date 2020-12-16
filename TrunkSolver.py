@@ -537,7 +537,7 @@ def main(file,file1,infile1, infilefasta):
     logging.info("Writing output file")
 
     outfilename = infile1[:-4]
-    outfile= outfilename+"_TrunkSolved"+".txt"
+    outfile= outfilename+"_TS"+".txt"
     df.to_csv(outfile, index=False, sep='\t', encoding='utf-8')
 
 
@@ -585,8 +585,8 @@ if __name__ == '__main__':
             config.write(newconfig)
         
     # logging debug level. By default, info level
-    log_file = outfile = args.infile[:-4] + 'TrunkSolver_log.txt'
-    log_file_debug = outfile = args.infile[:-4] + 'TrunkSolver_log_debug.txt'
+    log_file = outfile = args.infile[:-4] + 'TS_log.txt'
+    log_file_debug = outfile = args.infile[:-4] + 'TS_log_debug.txt'
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s - %(levelname)s - %(message)s',
