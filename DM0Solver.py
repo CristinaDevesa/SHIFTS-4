@@ -74,7 +74,7 @@ def DM0Solver( Theo_mh,Exp_mh,seq,Error,dicc_DM0):
     # The dictionary option that obtains the smallest error is saved.
     minimun_DiffPPM = Error  # At the beginning the minimum difference (ppms) is considered as the Error  
     for Label in dicc_DM0:
-        DiffPPM = abs(((Theo_mh+float(dicc_DM0[Label])-Exp_mh)*1000000)/(Theo_mh-float(dicc_DM0[Label])))
+        DiffPPM = abs(((Theo_mh+float(dicc_DM0[Label])-Exp_mh)*1000000)/(Theo_mh+float(dicc_DM0[Label])))
         if DiffPPM <= Error:
             if DiffPPM < minimun_DiffPPM:
                 minimun_DiffPPM = DiffPPM
