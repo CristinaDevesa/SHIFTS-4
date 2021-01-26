@@ -56,7 +56,7 @@ def theoretical_mh_by_hand(subseq,label_mass,dic_mod,dic_aa,selectedaa,Mproton,H
     Theoretical mass is calculated taking into account fix modifications, label and subseq. This funtions returns theoretical
     mass fix modifications positions and the subsequence adding fix modifications.
     """
-    decnum=int(decnum.replace("f","").replace(".",""))
+    decnum = int(decnum.replace("f","").replace(".",""))
     H20 = 2*Hydrogen+O2
     pattern = "[a-z]"
     
@@ -152,9 +152,9 @@ def tag(seq,subseq):
           
     # if one of the ends have a non tryptic cut means that there is a truncation
     if "No" in Truncation:
-        Truncation1="No"
+        Truncation1 = "No"
     else:
-        Truncation1="YeS"
+        Truncation1 = "YeS"
 
     return Truncation1
 
@@ -171,18 +171,18 @@ def Obtain_values(seq,MasterProtein_column,dic_fasta):
     """
     
     clean_seq = seq[:seq.find("[")]+seq[seq.find("]")+1:].upper() #The clean sequence is obtained.
-    MasterProtein=MasterProtein_column.strip("\n").split("_")
-    MasterProtein= MasterProtein[0]+"_"+MasterProtein[1] # The id is extracted from the Master Protein name 
+    MasterProtein = MasterProtein_column.strip("\n").split("_")
+    MasterProtein = MasterProtein[0]+"_"+MasterProtein[1] # The id is extracted from the Master Protein name 
     
     # The fasta sequence corresponding to this identifier is saved 
     for iden in dic_fasta:
-        if MasterProtein==iden:
-            result=str(dic_fasta[iden].seq.upper()).replace("X","L")
+        if MasterProtein == iden:
+            result = str(dic_fasta[iden].seq.upper()).replace("X","L")
             break
    
-    pattern=re.compile(clean_seq.replace("L","l").replace("I","[IL]").replace("l","[IL]")) # Problems that may exist with leucine and isoleucine are solved
+    pattern = re.compile(clean_seq.replace("L","l").replace("I","[IL]").replace("l","[IL]")) # Problems that may exist with leucine and isoleucine are solved
     
-    dic_seqs={}
+    dic_seqs = {}
     pos = 0
     
     # The corresponding fasta sequence is rigorously scrutinized so that no chance is missed  
@@ -277,11 +277,10 @@ def best_combination(subseq,Exp_Mh,cont,j,Error,label_mass,dic_mod,selectedaa,di
     
     # if the distance between the original  DM site and the actual amino acid position is greater than the parameter x stablished by the user 
     # j variable indicates TrunkSolver function this subseq is not a possible option
-    if abs(distanceDMsub-distanceDM)> int(x):
+    if abs(distanceDMsub-distanceDM) > int(x):
     
         j = "subseq1_stop"
    
-
 
     return minimun_DiffPPM,TrunkSequence,TrunkDM,TrunkLabel,mods_position,Trunk_Label_ppm,j,New_DM, New_Theo_MH
 
@@ -325,17 +324,17 @@ def TrunkSolver(seq,dic_seqs,Exp_mh,calibrated_delta_MH,result,Error,dic_aa,dic_
         #Only those positions that are not further from the original site of the DM than the one indicated by the user will be taken into account.
         
         if len(seq[:seq.find("[")])<=x:
-            firstpart=x
+            firstpart = x
         else:
             
-            firstpart= len(seq[:seq.find("[")])
+            firstpart = len(seq[:seq.find("[")])
         
-        if len(seq[seq.find("]")+1:])<=x:
-            secondpart=x
+        if len(seq[seq.find("]")+1:]) <= x:
+            secondpart = x
         else:
-            secondpart= len(seq[seq.find("]")+1:])
+            secondpart = len(seq[seq.find("]")+1:])
         
-        totallength=secondpart+firstpart
+        totallength = secondpart+firstpart
         
         i = 1 #Position counter
         k = 1 #Position counter
@@ -345,12 +344,12 @@ def TrunkSolver(seq,dic_seqs,Exp_mh,calibrated_delta_MH,result,Error,dic_aa,dic_
      
 
         # While the extension of the subsequence can be elongated one amino acid will be added 
-        while (len(subseq1)<=totallength or len(subseq2)<=totallength) and (len(subseq1)!=0 or len(subseq2)!=0) and listseqs!=[]:
+        while (len(subseq1) <= totallength or len(subseq2) <= totallength) and (len(subseq1) != 0 or len(subseq2) != 0) and listseqs != []:
             
             listseqs = [] # All possible subsequences will be saved in this list
             
             # C-term extension
-            if len(subseq1)<len(seq)*3:
+            if len(subseq1) < len(seq)*3:
                 distanceDMsub1 = position+1+i #Distance from the new position to the original DM site
                 if position+i <= len(result1[position:])+position:
                     subseq1 = result1[position:position+i+1]
@@ -361,7 +360,7 @@ def TrunkSolver(seq,dic_seqs,Exp_mh,calibrated_delta_MH,result,Error,dic_aa,dic_
                    
 
             # N-term extension
-            if len(subseq2)<len(seq)*3:
+            if len(subseq2) < len(seq)*3:
                 distanceDMsub2 = final_position-k
                 if final_position-k >= 0:
                     subseq2 = result1[final_position-k:final_position]
@@ -377,7 +376,7 @@ def TrunkSolver(seq,dic_seqs,Exp_mh,calibrated_delta_MH,result,Error,dic_aa,dic_
                 for subseq in listseqs: # Best combination of this subsequence is saved
 
                     cont = cont+1  
-                    j=""
+                    j = ""
                     
                     # Name of distance variable dependidng of C-term o N-term extension
                     if cont == 1 : 
@@ -388,7 +387,7 @@ def TrunkSolver(seq,dic_seqs,Exp_mh,calibrated_delta_MH,result,Error,dic_aa,dic_
                     
                     minimun_DiffPPM,TrunkSequence,TrunkDM,TrunkLabel,mods_position,Trunk_Label_ppm,j,New_DM, New_Theo_MH = best_combination(subseq,Exp_mh,int(cont),j,Error,float(NT_label),dic_mod,selectedaa,dic_CombList,dic_aa,decnum,Mproton,Hydrogen,O2,distanceDMsub,DMresultposition,x)
                     
-                    if TrunkSequence != "" and j=="": # if best_combination  function finds a possible solution 
+                    if TrunkSequence != "" and j == "": # if best_combination  function finds a possible solution 
                        
                         # If the PPM difference is lower than the minimun the option will be saved in dic_result dictionary 
                         if abs(minimun_DiffPPM) <= minimun:
