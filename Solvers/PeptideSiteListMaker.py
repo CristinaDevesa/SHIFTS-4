@@ -95,8 +95,10 @@ def main(file,infile1):
             df2.loc[cont+1,"DM"] = float(row[DM_column_name])
             df2.loc[cont+1,"AminoAcid"] = aa
             df2.loc[cont+1,"ScanFreq"] = float(freq)
-            cont=cont+1
-
+        
+       
+        cont=cont+1
+     
 
     logging.info("Writing output file")
     name = infile1[:-4]
